@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriDomain Meta-Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, #6c63ff, #48cae4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 680px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 1rem;
+            color: #888;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input {
+            background: #0f1117;
+            border: 1px solid #2a2d3a;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        input:focus { border-color: #6c63ff; }
+
+        textarea {
+            background: #0f1117;
+            border: 1px solid #2a2d3a;
+            border-radius: 8px;
+            padding: 12px 14px;
+            color: #e0e0e0;
+            font-size: 0.95rem;
+            outline: none;
+            width: 100%;
+            resize: vertical;
+            min-height: 80px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        textarea:focus { border-color: #6c63ff; }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #6c63ff, #48cae4);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.9; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .response-card {
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 680px;
+            display: none;
+        }
+
+        .intent-badge {
+            display: inline-block;
+            background: #2a2d3a;
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 0.8rem;
+            color: #6c63ff;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .confidence {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .reasoning {
+            font-size: 0.85rem;
+            color: #aaa;
+            font-style: italic;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #2a2d3a;
+        }
+
+        .agent-response {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #0f1117;
+            border-radius: 12px;
+            border-left: 3px solid #6c63ff;
+        }
+
+        .agent-response.health { border-left-color: #48cae4; }
+        .agent-response.finance { border-left-color: #4ade80; }
+
+        .agent-domain {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6c63ff;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .agent-response.health .agent-domain { color: #48cae4; }
+        .agent-response.finance .agent-domain { color: #4ade80; }
+
+        .recommendation {
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-bottom: 12px;
+            color: #e0e0e0;
+        }
+
+        .reason {
+            font-size: 0.85rem;
+            color: #888;
+            line-height: 1.5;
+            margin-bottom: 10px;
+        }
+
+        .confidence-bar-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .confidence-bar {
+            flex: 1;
+            height: 4px;
+            background: #2a2d3a;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6c63ff, #48cae4);
+            border-radius: 4px;
+            transition: width 0.6s ease;
+        }
+
+        .confidence-label {
+            font-size: 0.75rem;
+            color: #888;
+            white-space: nowrap;
+        }
+
+        .metrics {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 12px;
+        }
+
+        .metric {
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 8px;
+            padding: 8px 14px;
+            font-size: 0.8rem;
+        }
+
+        .metric span { color: #6c63ff; font-weight: 600; }
+
+        .skill-gap {
+            margin-top: 14px;
+            padding: 14px;
+            background: #1a1d27;
+            border-radius: 8px;
+        }
+
+        .skill-gap h4 {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+        }
+
+        .skill-tag {
+            display: inline-block;
+            background: #2a2d3a;
+            border-radius: 6px;
+            padding: 3px 10px;
+            font-size: 0.78rem;
+            margin: 3px;
+            color: #e0e0e0;
+        }
+
+        .skill-tag.missing { 
+            background: rgba(239, 68, 68, 0.15); 
+            color: #f87171; 
+        }
+
+        .loading {
+            text-align: center;
+            color: #888;
+            padding: 20px;
+            display: none;
+        }
+
+        .error-msg {
+            color: #f87171;
+            font-size: 0.9rem;
+            margin-top: 12px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>TriDomain Meta-Agent</h1>
+    <p class="subtitle">Career · Health · Finance — powered by AI</p>
+
+    <div class="card">
+        <h2>Your Profile</h2>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="name" value="Arjun" />
+            </div>
+            <div class="form-group">
+                <label>Age</label>
+                <input type="number" id="age" value="28" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Weight (kg)</label>
+                <input type="number" id="weight" value="75" />
+            </div>
+            <div class="form-group">
+                <label>Height (cm)</label>
+                <input type="number" id="height" value="175" />
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Monthly Income (₹)</label>
+                <input type="number" id="income" value="50000" />
+            </div>
+            <div class="form-group">
+                <label>Monthly Expenses (₹)</label>
+                <input type="number" id="expenses" value="35000" />
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 16px;">
+            <label>Current Skills (comma separated)</label>
+            <input type="text" id="skills" 
+                   placeholder="python, sql, excel" />
+        </div>
+
+        <div class="form-group" style="margin-bottom: 20px;">
+            <label>Your Query</label>
+            <textarea id="query" 
+                placeholder="Ask anything — e.g. I want to switch to data science but worried about finances"></textarea>
+        </div>
+
+        <button id="submitBtn" onclick="submitQuery()">
+            Ask Meta-Agent
+        </button>
+        <div class="error-msg" id="errorMsg"></div>
+    </div>
+
+    <div class="loading" id="loading">
+        Thinking across all domains...
+    </div>
+
+    <div class="response-card" id="responseCard">
+        <h2 style="margin-bottom:16px;">Response</h2>
+        <div id="responseContent"></div>
+    </div>
+
+    <script>
+        async function submitQuery() {
+            const btn = document.getElementById('submitBtn');
+            const loading = document.getElementById('loading');
+            const responseCard = document.getElementById('responseCard');
+            const errorMsg = document.getElementById('errorMsg');
+
+            // Get values
+            const name = document.getElementById('name').value;
+            const age = parseInt(document.getElementById('age').value);
+            const weight = parseFloat(document.getElementById('weight').value);
+            const height = parseFloat(document.getElementById('height').value);
+            const income = parseFloat(document.getElementById('income').value);
+            const expenses = parseFloat(document.getElementById('expenses').value);
+            const query = document.getElementById('query').value;
+            const skillsRaw = document.getElementById('skills').value;
+            const skills = skillsRaw ? 
+                skillsRaw.split(',').map(s => s.trim().toLowerCase()) : [];
+
+            if (!query.trim()) {
+                errorMsg.textContent = "Please enter a query.";
+                errorMsg.style.display = "block";
+                return;
+            }
+
+            // UI state
+            btn.disabled = true;
+            btn.textContent = "Thinking...";
+            loading.style.display = "block";
+            responseCard.style.display = "none";
+            errorMsg.style.display = "none";
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/query', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name, age,
+                        weight_kg: weight,
+                        height_cm: height,
+                        monthly_income: income,
+                        monthly_expenses: expenses,
+                        query,
+                        current_skills: skills,
+                        target_role: "data scientist"
+                    })
+                });
+
+                const data = await res.json();
+                renderResponse(data);
+
+            } catch (err) {
+                errorMsg.textContent = 
+                    "Cannot reach server. Make sure uvicorn is running.";
+                errorMsg.style.display = "block";
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "Ask Meta-Agent";
+                loading.style.display = "none";
+            }
+        }
+
+        function renderResponse(data) {
+            const card = document.getElementById('responseCard');
+            const content = document.getElementById('responseContent');
+
+            let html = '';
+
+            // Intent section
+            if (data.intent) {
+                const { domains, confidence, reasoning } = data.intent;
+                html += domains.map(d => 
+                    `<span class="intent-badge">${d}</span>`
+                ).join('');
+                html += `<div class="confidence">
+                    Confidence: ${(confidence * 100).toFixed(0)}%
+                </div>`;
+                html += `<div class="reasoning">"${reasoning}"</div>`;
+            }
+
+            // Agent responses
+            const responses = data.responses || [data];
+            responses.forEach(r => {
+                if (!r.domain) return;
+                html += `<div class="agent-response ${r.domain}">`;
+                html += `<div class="agent-domain">${r.domain} agent</div>`;
+
+                if (r.recommendation) {
+                    html += `<div class="recommendation">
+                        ${r.recommendation}
+                    </div>`;
+                }
+                if (r.reason) {
+                    html += `<div class="reason">💡 ${r.reason}</div>`;
+                }
+
+                // Confidence bar
+                if (r.confidence !== undefined) {
+                    const pct = (r.confidence * 100).toFixed(0);
+                    html += `<div class="confidence-bar-wrap">
+                        <div class="confidence-bar">
+                            <div class="confidence-fill" 
+                                 style="width:${pct}%"></div>
+                        </div>
+                        <span class="confidence-label">
+                            ${pct}% confidence
+                        </span>
+                    </div>`;
+                }
+
+                // Health metrics
+                if (r.bmi) {
+                    html += `<div class="metrics">
+                        <div class="metric">
+                            BMI <span>${r.bmi.bmi}</span>
+                        </div>
+                        <div class="metric">
+                            <span>${r.bmi.category}</span>
+                        </div>
+                    </div>`;
+                }
+
+                // Finance metrics
+                if (r.savings) {
+                    html += `<div class="metrics">
+                        <div class="metric">
+                            Savings <span>₹${r.savings.savings}</span>
+                        </div>
+                        <div class="metric">
+                            Rate <span>${r.savings.rate_pct}%</span>
+                        </div>
+                        <div class="metric">
+                            Debt Ratio 
+                            <span>${r.debt_ratio.debt_to_income_ratio}</span>
+                        </div>
+                    </div>`;
+                }
+
+                // Skill gap
+                if (r.skill_gap) {
+                    const sg = r.skill_gap;
+                    html += `<div class="skill-gap">
+                        <h4>Skill Gap — ${sg.match_percentage}% match</h4>`;
+                    sg.current_skills.forEach(s => {
+                        html += `<span class="skill-tag">${s}</span>`;
+                    });
+                    sg.missing_skills.forEach(s => {
+                        html += `<span class="skill-tag missing">
+                            missing: ${s}
+                        </span>`;
+                    });
+                    html += `</div>`;
+                }
+
+                html += `</div>`;
+            });
+
+            content.innerHTML = html;
+            card.style.display = "block";
+            card.scrollIntoView({ behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
