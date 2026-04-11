@@ -27,11 +27,7 @@
             -webkit-text-fill-color: transparent;
         }
 
-        .subtitle {
-            color: #888;
-            margin-bottom: 40px;
-            font-size: 0.95rem;
-        }
+        .subtitle { color: #888; margin-bottom: 40px; font-size: 0.95rem; }
 
         .card {
             background: #1a1d27;
@@ -39,7 +35,7 @@
             border-radius: 16px;
             padding: 32px;
             width: 100%;
-            max-width: 680px;
+            max-width: 780px;
             margin-bottom: 24px;
         }
 
@@ -58,11 +54,7 @@
             margin-bottom: 16px;
         }
 
-        .form-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
 
         label {
             font-size: 0.8rem;
@@ -71,7 +63,7 @@
             letter-spacing: 0.5px;
         }
 
-        input {
+        input, select {
             background: #0f1117;
             border: 1px solid #2a2d3a;
             border-radius: 8px;
@@ -82,7 +74,7 @@
             transition: border-color 0.2s;
         }
 
-        input:focus { border-color: #6c63ff; }
+        input:focus, select:focus { border-color: #6c63ff; }
 
         textarea {
             background: #0f1117;
@@ -118,13 +110,23 @@
         button:hover { opacity: 0.9; }
         button:disabled { opacity: 0.5; cursor: not-allowed; }
 
+        .section-divider {
+            font-size: 0.75rem;
+            color: #6c63ff;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin: 20px 0 10px 0;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #2a2d3a;
+        }
+
         .response-card {
             background: #1a1d27;
             border: 1px solid #2a2d3a;
             border-radius: 16px;
             padding: 32px;
             width: 100%;
-            max-width: 680px;
+            max-width: 780px;
             display: none;
         }
 
@@ -141,11 +143,7 @@
             letter-spacing: 0.5px;
         }
 
-        .confidence {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 8px;
-        }
+        .confidence { font-size: 0.8rem; color: #888; margin-bottom: 8px; }
 
         .reasoning {
             font-size: 0.85rem;
@@ -164,7 +162,7 @@
             border-left: 3px solid #6c63ff;
         }
 
-        .agent-response.health { border-left-color: #48cae4; }
+        .agent-response.health  { border-left-color: #48cae4; }
         .agent-response.finance { border-left-color: #4ade80; }
 
         .agent-domain {
@@ -176,341 +174,515 @@
             font-weight: 700;
         }
 
-        .agent-response.health .agent-domain { color: #48cae4; }
+        .agent-response.health  .agent-domain { color: #48cae4; }
         .agent-response.finance .agent-domain { color: #4ade80; }
 
-        .recommendation {
-            font-size: 0.95rem;
-            line-height: 1.6;
-            margin-bottom: 12px;
-            color: #e0e0e0;
-        }
+        .recommendation { font-size: 0.95rem; line-height: 1.6; margin-bottom: 12px; color: #e0e0e0; }
+        .reason         { font-size: 0.85rem; color: #888; line-height: 1.5; margin-bottom: 10px; }
 
-        .reason {
-            font-size: 0.85rem;
-            color: #888;
-            line-height: 1.5;
-            margin-bottom: 10px;
-        }
+        .confidence-bar-wrap { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .confidence-bar      { flex: 1; height: 4px; background: #2a2d3a; border-radius: 4px; overflow: hidden; }
+        .confidence-fill     { height: 100%; background: linear-gradient(90deg, #6c63ff, #48cae4); border-radius: 4px; transition: width 0.6s ease; }
+        .confidence-label    { font-size: 0.75rem; color: #888; white-space: nowrap; }
 
-        .confidence-bar-wrap {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 10px;
-        }
+        .metrics       { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+        .metric        { background: #1a1d27; border: 1px solid #2a2d3a; border-radius: 8px; padding: 8px 14px; font-size: 0.8rem; }
+        .metric span   { color: #6c63ff; font-weight: 600; }
 
-        .confidence-bar {
-            flex: 1;
-            height: 4px;
-            background: #2a2d3a;
-            border-radius: 4px;
-            overflow: hidden;
-        }
+        .section-block { margin-top: 16px; padding: 14px; background: #1a1d27; border-radius: 10px; border: 1px solid #2a2d3a; }
+        .section-title { font-size: 0.75rem; color: #888; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; font-weight: 700; }
 
-        .confidence-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #6c63ff, #48cae4);
-            border-radius: 4px;
-            transition: width 0.6s ease;
-        }
+        .skill-tag         { display: inline-block; background: #2a2d3a; border-radius: 6px; padding: 3px 10px; font-size: 0.78rem; margin: 3px; color: #e0e0e0; }
+        .skill-tag.missing { background: rgba(239, 68, 68, 0.15); color: #f87171; }
 
-        .confidence-label {
-            font-size: 0.75rem;
-            color: #888;
-            white-space: nowrap;
-        }
+        .job-card  { background: #0f1117; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+        .job-title { font-size: 0.9rem; font-weight: 600; color: #e0e0e0; margin-bottom: 4px; }
+        .job-meta  { font-size: 0.78rem; color: #888; margin-bottom: 6px; }
+        .job-score { display: inline-block; background: rgba(108, 99, 255, 0.15); color: #6c63ff; border-radius: 6px; padding: 2px 10px; font-size: 0.78rem; font-weight: 600; }
+        .job-salary{ display: inline-block; background: rgba(74, 222, 128, 0.15); color: #4ade80; border-radius: 6px; padding: 2px 10px; font-size: 0.78rem; margin-left: 6px; }
 
-        .metrics {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
-            margin-top: 12px;
-        }
+        .phase-card  { background: #0f1117; border: 1px solid #2a2d3a; border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+        .phase-title { font-size: 0.85rem; font-weight: 600; color: #6c63ff; margin-bottom: 4px; }
+        .phase-meta  { font-size: 0.78rem; color: #888; }
 
-        .metric {
-            background: #1a1d27;
-            border: 1px solid #2a2d3a;
-            border-radius: 8px;
-            padding: 8px 14px;
-            font-size: 0.8rem;
-        }
+        .tip-item              { font-size: 0.82rem; color: #aaa; padding: 4px 0; border-bottom: 1px solid #2a2d3a; }
+        .tip-item:last-child   { border-bottom: none; }
 
-        .metric span { color: #6c63ff; font-weight: 600; }
-
-        .skill-gap {
-            margin-top: 14px;
-            padding: 14px;
-            background: #1a1d27;
-            border-radius: 8px;
-        }
-
-        .skill-gap h4 {
-            font-size: 0.8rem;
-            color: #888;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-
-        .skill-tag {
-            display: inline-block;
-            background: #2a2d3a;
-            border-radius: 6px;
-            padding: 3px 10px;
-            font-size: 0.78rem;
-            margin: 3px;
-            color: #e0e0e0;
-        }
-
-        .skill-tag.missing { 
-            background: rgba(239, 68, 68, 0.15); 
-            color: #f87171; 
-        }
-
-        .loading {
-            text-align: center;
-            color: #888;
-            padding: 20px;
-            display: none;
-        }
-
-        .error-msg {
-            color: #f87171;
-            font-size: 0.9rem;
-            margin-top: 12px;
-            display: none;
-        }
+        .loading   { text-align: center; color: #888; padding: 20px; display: none; }
+        .error-msg { color: #f87171; font-size: 0.9rem; margin-top: 12px; display: none; }
     </style>
 </head>
 <body>
 
-    <h1>TriDomain Meta-Agent</h1>
-    <p class="subtitle">Career · Health · Finance — powered by AI</p>
+<h1>TriDomain Meta-Agent</h1>
+<p class="subtitle">Career · Health · Finance — powered by AI</p>
 
-    <div class="card">
-        <h2>Your Profile</h2>
+<div class="card">
+    <h2>Your Profile</h2>
 
-        <div class="form-row">
-            <div class="form-group">
-                <label>Name</label>
-                <input type="text" id="name" value="Arjun" />
-            </div>
-            <div class="form-group">
-                <label>Age</label>
-                <input type="number" id="age" value="28" />
-            </div>
+    <!-- Basic Info -->
+    <div class="form-row">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="name" value="Arjun" />
         </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Weight (kg)</label>
-                <input type="number" id="weight" value="75" />
-            </div>
-            <div class="form-group">
-                <label>Height (cm)</label>
-                <input type="number" id="height" value="175" />
-            </div>
+        <div class="form-group">
+            <label>Age</label>
+            <input type="number" id="age" value="28" />
         </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label>Monthly Income (₹)</label>
-                <input type="number" id="income" value="50000" />
-            </div>
-            <div class="form-group">
-                <label>Monthly Expenses (₹)</label>
-                <input type="number" id="expenses" value="35000" />
-            </div>
-        </div>
-
-        <div class="form-group" style="margin-bottom: 16px;">
-            <label>Current Skills (comma separated)</label>
-            <input type="text" id="skills" 
-                   placeholder="python, sql, excel" />
-        </div>
-
-        <div class="form-group" style="margin-bottom: 20px;">
-            <label>Your Query</label>
-            <textarea id="query" 
-                placeholder="Ask anything — e.g. I want to switch to data science but worried about finances"></textarea>
-        </div>
-
-        <button id="submitBtn" onclick="submitQuery()">
-            Ask Meta-Agent
-        </button>
-        <div class="error-msg" id="errorMsg"></div>
     </div>
 
-    <div class="loading" id="loading">
-        Thinking across all domains...
+    <div class="form-row">
+        <div class="form-group">
+            <label>Weight (kg)</label>
+            <input type="number" id="weight" value="75" />
+        </div>
+        <div class="form-group">
+            <label>Height (cm)</label>
+            <input type="number" id="height" value="175" />
+        </div>
     </div>
 
-    <div class="response-card" id="responseCard">
-        <h2 style="margin-bottom:16px;">Response</h2>
-        <div id="responseContent"></div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Monthly Income (₹)</label>
+            <input type="number" id="income" value="50000" />
+        </div>
+        <div class="form-group">
+            <label>Monthly Expenses (₹)</label>
+            <input type="number" id="expenses" value="35000" />
+        </div>
     </div>
 
-    <script>
-        async function submitQuery() {
-            const btn = document.getElementById('submitBtn');
-            const loading = document.getElementById('loading');
-            const responseCard = document.getElementById('responseCard');
-            const errorMsg = document.getElementById('errorMsg');
+    <!-- Career Fields -->
+    <div class="section-divider">Career</div>
 
-            // Get values
-            const name = document.getElementById('name').value;
-            const age = parseInt(document.getElementById('age').value);
-            const weight = parseFloat(document.getElementById('weight').value);
-            const height = parseFloat(document.getElementById('height').value);
-            const income = parseFloat(document.getElementById('income').value);
-            const expenses = parseFloat(document.getElementById('expenses').value);
-            const query = document.getElementById('query').value;
-            const skillsRaw = document.getElementById('skills').value;
-            const skills = skillsRaw ? 
-                skillsRaw.split(',').map(s => s.trim().toLowerCase()) : [];
+    <div class="form-row">
+        <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="location" value="Bangalore" />
+        </div>
+        <div class="form-group">
+            <label>Experience Level</label>
+            <select id="experience_level">
+                <option value="junior">Junior</option>
+                <option value="mid" selected>Mid</option>
+                <option value="senior">Senior</option>
+            </select>
+        </div>
+    </div>
 
-            if (!query.trim()) {
-                errorMsg.textContent = "Please enter a query.";
-                errorMsg.style.display = "block";
-                return;
-            }
+    <div class="form-row">
+        <div class="form-group">
+            <label>Years Experience</label>
+            <input type="number" id="years_experience" value="3" />
+        </div>
+        <div class="form-group">
+            <label>Timeline (months)</label>
+            <input type="number" id="timeline_months" value="6" />
+        </div>
+    </div>
 
-            // UI state
-            btn.disabled = true;
-            btn.textContent = "Thinking...";
-            loading.style.display = "block";
-            responseCard.style.display = "none";
-            errorMsg.style.display = "none";
+    <div class="form-group" style="margin-bottom:16px;">
+        <label>Current Skills (comma separated)</label>
+        <input type="text" id="skills" placeholder="python, sql, excel" />
+    </div>
 
-            try {
-                const res = await fetch('http://127.0.0.1:8000/query', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name, age,
-                        weight_kg: weight,
-                        height_cm: height,
-                        monthly_income: income,
-                        monthly_expenses: expenses,
-                        query,
-                        current_skills: skills,
-                        target_role: "data scientist"
-                    })
-                });
+    <div class="form-group" style="margin-bottom:16px;">
+        <label>Target Role</label>
+        <input type="text" id="target_role" value="data scientist" />
+    </div>
 
-                const data = await res.json();
-                renderResponse(data);
+    <!-- Health Fields -->
+    <div class="section-divider">Health</div>
 
-            } catch (err) {
-                errorMsg.textContent = 
-                    "Cannot reach server. Make sure uvicorn is running.";
-                errorMsg.style.display = "block";
-            } finally {
-                btn.disabled = false;
-                btn.textContent = "Ask Meta-Agent";
-                loading.style.display = "none";
-            }
+    <div class="form-row">
+        <div class="form-group">
+            <label>Gender</label>
+            <select id="gender">
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Fitness Goal</label>
+            <select id="fitness_goal">
+                <option value="general fitness">General Fitness</option>
+                <option value="weight loss">Weight Loss</option>
+                <option value="muscle gain">Muscle Gain</option>
+            </select>
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>Sleep Hours</label>
+            <input type="number" id="sleep_hours" value="7" step="0.5" />
+        </div>
+        <div class="form-group">
+            <label>Sleep Quality (1-10)</label>
+            <input type="number" id="sleep_quality" value="7" min="1" max="10" />
+        </div>
+    </div>
+
+    <div class="form-row">
+        <div class="form-group">
+            <label>Stress Level (1-10)</label>
+            <input type="number" id="stress_level" value="5" min="1" max="10" />
+        </div>
+        <div class="form-group">
+            <label>Mood Score (1-10)</label>
+            <input type="number" id="mood_score" value="7" min="1" max="10" />
+        </div>
+    </div>
+
+    <!-- Query -->
+    <div class="section-divider">Your Query</div>
+
+    <div class="form-group" style="margin-bottom:20px;">
+        <label>Ask anything</label>
+        <textarea id="query"
+            placeholder="e.g. How do I become a data scientist? or How do I improve my health?"></textarea>
+    </div>
+
+    <button id="submitBtn" onclick="submitQuery()">Ask Meta-Agent</button>
+    <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<div class="loading" id="loading">Thinking across all domains...</div>
+
+<div class="response-card" id="responseCard">
+    <h2 style="margin-bottom:16px;">Response</h2>
+    <div id="responseContent"></div>
+</div>
+
+<script>
+async function submitQuery() {
+    const btn          = document.getElementById('submitBtn');
+    const loading      = document.getElementById('loading');
+    const responseCard = document.getElementById('responseCard');
+    const errorMsg     = document.getElementById('errorMsg');
+
+    const name             = document.getElementById('name').value;
+    const age              = parseInt(document.getElementById('age').value);
+    const weight           = parseFloat(document.getElementById('weight').value);
+    const height           = parseFloat(document.getElementById('height').value);
+    const income           = parseFloat(document.getElementById('income').value);
+    const expenses         = parseFloat(document.getElementById('expenses').value);
+    const query            = document.getElementById('query').value;
+    const location         = document.getElementById('location').value;
+    const experience_level = document.getElementById('experience_level').value;
+    const years_experience = parseInt(document.getElementById('years_experience').value);
+    const timeline_months  = parseInt(document.getElementById('timeline_months').value);
+    const target_role      = document.getElementById('target_role').value;
+    const gender           = document.getElementById('gender').value;
+    const fitness_goal     = document.getElementById('fitness_goal').value;
+    const sleep_hours      = parseFloat(document.getElementById('sleep_hours').value);
+    const sleep_quality    = parseInt(document.getElementById('sleep_quality').value);
+    const stress_level     = parseInt(document.getElementById('stress_level').value);
+    const mood_score       = parseInt(document.getElementById('mood_score').value);
+    const skillsRaw        = document.getElementById('skills').value;
+    const skills           = skillsRaw ?
+        skillsRaw.split(',').map(s => s.trim().toLowerCase()) : [];
+
+    if (!query.trim()) {
+        errorMsg.textContent   = "Please enter a query.";
+        errorMsg.style.display = "block";
+        return;
+    }
+
+    btn.disabled               = true;
+    btn.textContent            = "Thinking...";
+    loading.style.display      = "block";
+    responseCard.style.display = "none";
+    errorMsg.style.display     = "none";
+
+    try {
+        const res = await fetch('http://127.0.0.1:8000/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                name,
+                age,
+                query,
+                weight_kg:               weight,
+                height_cm:               height,
+                monthly_income:          income,
+                monthly_expenses:        expenses,
+                current_skills:          skills,
+                target_role,
+                location,
+                experience_level,
+                years_experience,
+                timeline_months,
+                current_level:           "beginner",
+                current_savings:         0.0,
+                resume_text:             "",
+                gender,
+                fitness_goal,
+                fitness_experience:      experience_level,
+                available_days:          3,
+                meals:                   ["rice", "dal", "vegetables"],
+                nutritional_goal:        fitness_goal,
+                sleep_hours,
+                sleep_quality,
+                bedtime:                 "23:00",
+                wakeup_time:             "06:00",
+                stress_level,
+                mood_score,
+                anxiety_level:           4,
+                last_checkup_months_ago: 12
+            })
+        });
+
+        const data = await res.json();
+        renderResponse(data);
+
+    } catch (err) {
+        errorMsg.textContent   = "Cannot reach server. Make sure uvicorn is running.";
+        errorMsg.style.display = "block";
+    } finally {
+        btn.disabled    = false;
+        btn.textContent = "Ask Meta-Agent";
+        loading.style.display = "none";
+    }
+}
+
+function renderResponse(data) {
+    const card    = document.getElementById('responseCard');
+    const content = document.getElementById('responseContent');
+    let html = '';
+
+    // ── Intent ────────────────────────────────────────────────────────
+    if (data.intent) {
+        const { domains, confidence, reasoning } = data.intent;
+        html += domains.map(d => `<span class="intent-badge">${d}</span>`).join('');
+        html += `<div class="confidence">Confidence: ${(confidence * 100).toFixed(0)}%</div>`;
+        html += `<div class="reasoning">"${reasoning}"</div>`;
+    }
+
+    // ── Agent Responses ───────────────────────────────────────────────
+    const responses = data.responses || [data];
+    responses.forEach(r => {
+        if (!r.domain) return;
+        html += `<div class="agent-response ${r.domain}">`;
+        html += `<div class="agent-domain">${r.domain} agent</div>`;
+
+        if (r.recommendation) {
+            html += `<div class="recommendation">${r.recommendation}</div>`;
+        }
+        if (r.reason) {
+            html += `<div class="reason">💡 ${r.reason}</div>`;
         }
 
-        function renderResponse(data) {
-            const card = document.getElementById('responseCard');
-            const content = document.getElementById('responseContent');
+        if (r.confidence !== undefined) {
+            const pct = (r.confidence * 100).toFixed(0);
+            html += `<div class="confidence-bar-wrap">
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width:${pct}%"></div>
+                </div>
+                <span class="confidence-label">${pct}% confidence</span>
+            </div>`;
+        }
 
-            let html = '';
+        // ── CAREER ────────────────────────────────────────────────────
 
-            // Intent section
-            if (data.intent) {
-                const { domains, confidence, reasoning } = data.intent;
-                html += domains.map(d => 
-                    `<span class="intent-badge">${d}</span>`
-                ).join('');
-                html += `<div class="confidence">
-                    Confidence: ${(confidence * 100).toFixed(0)}%
-                </div>`;
-                html += `<div class="reasoning">"${reasoning}"</div>`;
-            }
-
-            // Agent responses
-            const responses = data.responses || [data];
-            responses.forEach(r => {
-                if (!r.domain) return;
-                html += `<div class="agent-response ${r.domain}">`;
-                html += `<div class="agent-domain">${r.domain} agent</div>`;
-
-                if (r.recommendation) {
-                    html += `<div class="recommendation">
-                        ${r.recommendation}
-                    </div>`;
-                }
-                if (r.reason) {
-                    html += `<div class="reason">💡 ${r.reason}</div>`;
-                }
-
-                // Confidence bar
-                if (r.confidence !== undefined) {
-                    const pct = (r.confidence * 100).toFixed(0);
-                    html += `<div class="confidence-bar-wrap">
-                        <div class="confidence-bar">
-                            <div class="confidence-fill" 
-                                 style="width:${pct}%"></div>
-                        </div>
-                        <span class="confidence-label">
-                            ${pct}% confidence
-                        </span>
-                    </div>`;
-                }
-
-                // Health metrics
-                if (r.bmi) {
-                    html += `<div class="metrics">
-                        <div class="metric">
-                            BMI <span>${r.bmi.bmi}</span>
-                        </div>
-                        <div class="metric">
-                            <span>${r.bmi.category}</span>
-                        </div>
-                    </div>`;
-                }
-
-                // Finance metrics
-                if (r.savings) {
-                    html += `<div class="metrics">
-                        <div class="metric">
-                            Savings <span>₹${r.savings.savings}</span>
-                        </div>
-                        <div class="metric">
-                            Rate <span>${r.savings.rate_pct}%</span>
-                        </div>
-                        <div class="metric">
-                            Debt Ratio 
-                            <span>${r.debt_ratio.debt_to_income_ratio}</span>
-                        </div>
-                    </div>`;
-                }
-
-                // Skill gap
-                if (r.skill_gap) {
-                    const sg = r.skill_gap;
-                    html += `<div class="skill-gap">
-                        <h4>Skill Gap — ${sg.match_percentage}% match</h4>`;
-                    sg.current_skills.forEach(s => {
-                        html += `<span class="skill-tag">${s}</span>`;
-                    });
-                    sg.missing_skills.forEach(s => {
-                        html += `<span class="skill-tag missing">
-                            missing: ${s}
-                        </span>`;
-                    });
-                    html += `</div>`;
-                }
-
-                html += `</div>`;
+        if (r.skill_gap) {
+            const sg = r.skill_gap;
+            html += `<div class="section-block">
+                <div class="section-title">Skill Gap — ${sg.match_percentage}% match (${sg.status})</div>`;
+            sg.current_skills.forEach(s => {
+                html += `<span class="skill-tag">✅ ${s}</span>`;
             });
-
-            content.innerHTML = html;
-            card.style.display = "block";
-            card.scrollIntoView({ behavior: 'smooth' });
+            sg.missing_skills.forEach(s => {
+                html += `<span class="skill-tag missing">❌ ${s}</span>`;
+            });
+            html += `</div>`;
         }
-    </script>
+
+        if (r.job_matches && r.job_matches.jobs.length > 0) {
+            html += `<div class="section-block">
+                <div class="section-title">Top Job Matches (${r.job_matches.total_matches} found)</div>`;
+            r.job_matches.jobs.slice(0, 3).forEach(job => {
+                html += `<div class="job-card">
+                    <div class="job-title">${job.title} — ${job.company}</div>
+                    <div class="job-meta">📍 ${job.location}</div>
+                    <span class="job-score">Match: ${job.match_score}%</span>
+                    <span class="job-salary">${job.salary_range}</span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        if (r.salary_benchmark) {
+            const sb = r.salary_benchmark;
+            html += `<div class="section-block">
+                <div class="section-title">Salary Benchmark</div>
+                <div class="metrics">
+                    <div class="metric">Band <span>${sb.experience_band}</span></div>
+                    <div class="metric">Range <span>Rs.${sb.market_range_lpa.min}–${sb.market_range_lpa.max} LPA</span></div>
+                    <div class="metric">Median <span>Rs.${sb.market_median_lpa} LPA</span></div>
+                </div>
+                <div style="margin-top:10px;">`;
+            sb.negotiation_tips.slice(0, 3).forEach(tip => {
+                html += `<div class="tip-item">💬 ${tip}</div>`;
+            });
+            html += `</div></div>`;
+        }
+
+        if (r.learning_path) {
+            const lp = r.learning_path;
+            html += `<div class="section-block">
+                <div class="section-title">Learning Path — ${lp.total_weeks_required} weeks | ${lp.weekly_hours_needed} hrs/week</div>`;
+            lp.phases.forEach(p => {
+                html += `<div class="phase-card">
+                    <div class="phase-title">Phase ${p.phase}: ${p.focus}</div>
+                    <div class="phase-meta">📚 ${p.topics.join(', ')}</div>
+                    <div class="phase-meta">🔗 ${p.resources.join(', ')}</div>
+                    <div class="phase-meta">⏱ ${p.duration_weeks} weeks</div>
+                </div>`;
+            });
+            html += `<div class="tip-item" style="margin-top:8px;">💡 ${lp.advice}</div>`;
+            html += `</div>`;
+        }
+
+        // ── HEALTH ────────────────────────────────────────────────────
+
+        if (r.bmi) {
+            html += `<div class="section-block">
+                <div class="section-title">Health Metrics</div>
+                <div class="metrics">
+                    <div class="metric">BMI <span>${r.bmi.bmi}</span></div>
+                    <div class="metric">Category <span>${r.bmi.category}</span></div>`;
+            if (r.fitness) {
+                html += `
+                    <div class="metric">Fitness Score <span>${r.fitness.fitness_score}/100</span></div>
+                    <div class="metric">Level <span>${r.fitness.fitness_level}</span></div>
+                    <div class="metric">Ideal Weight <span>${r.fitness.ideal_weight_range_kg.min}–${r.fitness.ideal_weight_range_kg.max} kg</span></div>
+                    <div class="metric">To Lose <span>${r.fitness.weight_to_lose_kg} kg</span></div>`;
+            }
+            html += `</div></div>`;
+        }
+
+        if (r.workout_plan) {
+            const wp = r.workout_plan;
+            html += `<div class="section-block">
+                <div class="section-title">Workout Plan — ${wp.days_per_week} days/week | ${wp.total_mins_per_week} mins total</div>`;
+            Object.entries(wp.schedule).forEach(([day, details]) => {
+                html += `<div class="phase-card">
+                    <div class="phase-title">${day.charAt(0).toUpperCase() + day.slice(1)} — ${details.type}</div>
+                    <div class="phase-meta">💪 ${details.exercises.join(', ')}</div>
+                    <div class="phase-meta">⏱ ${details.duration} mins</div>
+                </div>`;
+            });
+            html += `<div class="tip-item" style="margin-top:8px;">💡 ${wp.tip}</div>`;
+            html += `</div>`;
+        }
+
+        if (r.nutrition) {
+            const nt = r.nutrition;
+            html += `<div class="section-block">
+                <div class="section-title">Nutrition Tracker — ${nt.nutritional_goal}</div>
+                <div class="metrics">
+                    <div class="metric">Calories <span>${nt.totals.calories} / ${nt.daily_targets.calories}</span></div>
+                    <div class="metric">Protein <span>${nt.totals.protein}g / ${nt.daily_targets.protein}g</span></div>
+                    <div class="metric">Carbs <span>${nt.totals.carbs}g / ${nt.daily_targets.carbs}g</span></div>
+                    <div class="metric">Fat <span>${nt.totals.fat}g / ${nt.daily_targets.fat}g</span></div>
+                </div>
+                <div style="margin-top:10px;">`;
+            nt.recommendations.forEach(rec => {
+                html += `<div class="tip-item">🥗 ${rec}</div>`;
+            });
+            html += `</div></div>`;
+        }
+
+        if (r.sleep) {
+            const sl = r.sleep;
+            html += `<div class="section-block">
+                <div class="section-title">Sleep Analysis</div>
+                <div class="metrics">
+                    <div class="metric">Sleep Score <span>${sl.sleep_score}/100</span></div>
+                    <div class="metric">Level <span>${sl.sleep_level}</span></div>
+                    <div class="metric">Hours <span>${sl.sleep_hours} hrs</span></div>
+                    <div class="metric">Bedtime <span>${sl.bedtime}</span></div>
+                    <div class="metric">Wakeup <span>${sl.wakeup_time}</span></div>
+                </div>
+                <div style="margin-top:10px;">`;
+            sl.tips.forEach(tip => {
+                html += `<div class="tip-item">😴 ${tip}</div>`;
+            });
+            html += `</div></div>`;
+        }
+
+        if (r.mental_health) {
+            const mh = r.mental_health;
+            const wc = mh.wellness_score >= 80 ? '#4ade80' :
+                       mh.wellness_score >= 60 ? '#6c63ff' :
+                       mh.wellness_score >= 40 ? '#facc15' : '#f87171';
+            html += `<div class="section-block">
+                <div class="section-title">Mental Wellness</div>
+                <div class="metrics">
+                    <div class="metric">Wellness Score <span style="color:${wc}">${mh.wellness_score}/100</span></div>
+                    <div class="metric">Level <span>${mh.wellness_level}</span></div>
+                    <div class="metric">Mood <span>${mh.mood_score}/10</span></div>
+                    <div class="metric">Stress <span>${mh.stress_level}/10</span></div>
+                    <div class="metric">Anxiety <span>${mh.anxiety_level}/10</span></div>
+                </div>`;
+            if (mh.risk_flag) {
+                html += `<div style="margin-top:10px; padding:10px; background:rgba(239,68,68,0.15); border-radius:8px; color:#f87171; font-size:0.85rem;">
+                    ⚠️ ${mh.risk_message}
+                </div>`;
+            }
+            html += `<div style="margin-top:10px;">`;
+            mh.coping_strategies.forEach(s => {
+                html += `<div class="tip-item">🧘 ${s}</div>`;
+            });
+            html += `</div></div>`;
+        }
+
+        if (r.screenings) {
+            const sc = r.screenings;
+            html += `<div class="section-block">
+                <div class="section-title">Health Screenings — ${sc.total_screenings} recommended</div>`;
+            if (sc.overdue_for_checkup) {
+                html += `<div style="margin-bottom:10px; padding:8px 12px; background:rgba(239,68,68,0.15); border-radius:8px; color:#f87171; font-size:0.82rem;">
+                    ⚠️ ${sc.next_action}
+                </div>`;
+            }
+            sc.screenings.forEach(s => {
+                const pc = s.priority === 'high'   ? '#f87171' :
+                           s.priority === 'medium' ? '#facc15' : '#4ade80';
+                html += `<div class="job-card">
+                    <div class="job-title">${s.test}</div>
+                    <div class="job-meta">${s.reason} — ${s.frequency}</div>
+                    <span style="display:inline-block; background:rgba(255,255,255,0.05); color:${pc}; border-radius:6px; padding:2px 10px; font-size:0.78rem;">
+                        ${s.priority} priority
+                    </span>
+                </div>`;
+            });
+            html += `</div>`;
+        }
+
+        // ── FINANCE ───────────────────────────────────────────────────
+
+        if (r.savings) {
+            html += `<div class="section-block">
+                <div class="section-title">Finance Metrics</div>
+                <div class="metrics">
+                    <div class="metric">Savings <span>₹${r.savings.savings}</span></div>
+                    <div class="metric">Rate <span>${r.savings.rate_pct}%</span></div>
+                    <div class="metric">Debt Ratio <span>${r.debt_ratio.debt_to_income_ratio} (${r.debt_ratio.status})</span></div>
+                </div>
+            </div>`;
+        }
+
+        html += `</div>`;
+    });
+
+    content.innerHTML = html;
+    card.style.display = "block";
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
 </body>
 </html>
