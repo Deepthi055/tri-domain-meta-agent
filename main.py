@@ -7,6 +7,7 @@ import agents.career_agent as career
 import agents.health_agent as health
 import agents.finance_agent as finance
 from core.intent_detector import detect_intent
+from core.safety_layer import check_safety, check_relevance
 
 load_dotenv()
 
@@ -56,17 +57,40 @@ class QueryRequest(BaseModel):
 # ── Meta-Agent ────────────────────────────────────────────────────────
 def meta_agent(request: QueryRequest) -> dict:
 
+    # ── Step 1: Safety Check ──────────────────────────────────────────
+    safety = check_safety(request.query)
+
+    if not safety["is_safe"]:
+        return {
+            "status":            "blocked",
+            "reason":            safety["reason"],
+            "message":           safety["message"],
+            "domains_activated": []
+        }
+
+    # ── Step 2: Relevance Check ───────────────────────────────────────
+    relevance = check_relevance(request.query)
+
+    if not relevance["is_relevant"]:
+        return {
+            "status":            "out_of_scope",
+            "message":           relevance["message"],
+            "domains_activated": []
+        }
+
+    # ── Step 3: Intent Detection ──────────────────────────────────────
     if request.domain == "auto":
-        intent = detect_intent(request.query)
+        intent  = detect_intent(request.query)
         domains = intent["domains"]
     else:
         intent = {
-            "domains": [request.domain],
+            "domains":    [request.domain],
             "confidence": 1.0,
-            "reasoning": "Manual domain selection"
+            "reasoning":  "Manual domain selection"
         }
         domains = [request.domain]
 
+    # ── Step 4: Route to Agents ───────────────────────────────────────
     responses = []
     for domain in domains:
         if domain == "career":
@@ -77,17 +101,24 @@ def meta_agent(request: QueryRequest) -> dict:
             responses.append(finance.run(request))
         elif domain == "general":
             responses.append({
-                "domain": "general",
+                "domain":  "general",
                 "message": "Please specify a domain.",
                 "options": ["career", "health", "finance"]
             })
 
-    return {
-        "intent": intent,
-        "responses": responses,
+    # ── Step 5: Build Response ────────────────────────────────────────
+    result = {
+        "status":            "success",
+        "intent":            intent,
+        "responses":         responses,
         "domains_activated": domains
     }
 
+    # Add warning for sensitive topics
+    if safety["is_sensitive"]:
+        result["warning"] = safety["message"]
+
+    return result
 # ── Routes ────────────────────────────────────────────────────────────
 @app.get("/")
 def root():
