@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -681,6 +681,883 @@ function renderResponse(data) {
 
     content.innerHTML = html;
     card.style.display = "block";
+    card.scrollIntoView({ behavior: 'smooth' });
+}
+</script>
+</body>
+</html> -->
+
+
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TriDomain Meta-Agent</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #0f1117;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 8px;
+            background: linear-gradient(90deg, #6c63ff, #48cae4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 40px;
+            font-size: 0.95rem;
+        }
+
+        .card {
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 780px;
+            margin-bottom: 24px;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin: 24px 0 14px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #2a2d3a;
+        }
+
+        .section-label.career  { color: #6c63ff; border-color: #6c63ff33; }
+        .section-label.health  { color: #48cae4; border-color: #48cae433; }
+        .section-label.finance { color: #4ade80; border-color: #4ade8033; }
+        .section-label.query   { color: #f59e0b; border-color: #f59e0b33; }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .form-row.three { grid-template-columns: 1fr 1fr 1fr; }
+        .form-row.full  { grid-template-columns: 1fr; }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label {
+            font-size: 0.75rem;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input, select, textarea {
+            background: #0f1117;
+            border: 1px solid #2a2d3a;
+            border-radius: 8px;
+            padding: 9px 12px;
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+            font-family: inherit;
+            width: 100%;
+        }
+
+        input:focus, select:focus, textarea:focus { border-color: #6c63ff; }
+
+        select option { background: #1a1d27; }
+
+        textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Debt rows */
+        .debt-row {
+            display: grid;
+            grid-template-columns: 2fr 1.5fr 1.2fr 1.2fr 32px;
+            gap: 8px;
+            align-items: end;
+            margin-bottom: 8px;
+        }
+
+        .debt-row .form-group { margin: 0; }
+
+        .btn-remove {
+            background: #2a2d3a;
+            border: 1px solid #3a3d4a;
+            border-radius: 6px;
+            color: #f87171;
+            cursor: pointer;
+            font-size: 1rem;
+            height: 36px;
+            width: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            margin-bottom: 0;
+            padding: 0;
+            transition: background 0.15s;
+        }
+        .btn-remove:hover { background: #3a2d2d; }
+
+        .btn-add {
+            background: transparent;
+            border: 1px dashed #3a3d4a;
+            border-radius: 8px;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.82rem;
+            padding: 7px 14px;
+            margin-top: 4px;
+            transition: border-color 0.2s, color 0.2s;
+        }
+        .btn-add:hover { border-color: #4ade80; color: #4ade80; }
+
+        /* Range sliders */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .slider-row input[type=range] {
+            flex: 1;
+            padding: 0;
+            border: none;
+            background: transparent;
+            accent-color: #6c63ff;
+        }
+
+        .slider-val {
+            font-size: 0.85rem;
+            color: #6c63ff;
+            min-width: 28px;
+            text-align: right;
+            font-weight: 600;
+        }
+
+        /* Submit button */
+        .btn-submit {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(90deg, #6c63ff, #48cae4);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 8px;
+            transition: opacity 0.2s;
+        }
+        .btn-submit:hover   { opacity: 0.9; }
+        .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ── Response ── */
+        .response-card {
+            background: #1a1d27;
+            border: 1px solid #2a2d3a;
+            border-radius: 16px;
+            padding: 32px;
+            width: 100%;
+            max-width: 780px;
+            display: none;
+        }
+
+        .intent-badge {
+            display: inline-block;
+            background: #2a2d3a;
+            border-radius: 20px;
+            padding: 4px 14px;
+            font-size: 0.78rem;
+            color: #6c63ff;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .confidence { font-size: 0.8rem; color: #888; margin-bottom: 6px; }
+        .reasoning  { font-size: 0.85rem; color: #aaa; font-style: italic;
+                      margin-bottom: 22px; padding-bottom: 18px;
+                      border-bottom: 1px solid #2a2d3a; }
+
+        .agent-response {
+            margin-bottom: 24px;
+            padding: 20px;
+            background: #0f1117;
+            border-radius: 12px;
+            border-left: 3px solid #6c63ff;
+        }
+        .agent-response.health  { border-left-color: #48cae4; }
+        .agent-response.finance { border-left-color: #4ade80; }
+
+        .agent-domain {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #6c63ff;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        .agent-response.health  .agent-domain { color: #48cae4; }
+        .agent-response.finance .agent-domain { color: #4ade80; }
+
+        .recommendation { font-size: 0.95rem; line-height: 1.65;
+                          margin-bottom: 12px; color: #e0e0e0; }
+        .reason         { font-size: 0.85rem; color: #888; line-height: 1.5;
+                          margin-bottom: 10px; }
+
+        .confidence-bar-wrap { display:flex; align-items:center; gap:10px; margin-top:10px; }
+        .confidence-bar      { flex:1; height:4px; background:#2a2d3a; border-radius:4px; overflow:hidden; }
+        .confidence-fill     { height:100%;
+                               background: linear-gradient(90deg, #6c63ff, #48cae4);
+                               border-radius:4px; transition: width 0.6s ease; }
+        .confidence-label    { font-size:0.75rem; color:#888; white-space:nowrap; }
+
+        .metrics { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+        .metric  { background:#1a1d27; border:1px solid #2a2d3a;
+                   border-radius:8px; padding:7px 12px; font-size:0.78rem; }
+        .metric span { color:#6c63ff; font-weight:600; }
+
+        .tools-used { font-size:0.75rem; color:#555; margin-top:8px; }
+        .tools-used span { color:#4ade80; }
+
+        .skill-gap     { margin-top:14px; padding:14px; background:#1a1d27; border-radius:8px; }
+        .skill-gap h4  { font-size:0.78rem; color:#888; margin-bottom:8px; text-transform:uppercase; }
+        .skill-tag     { display:inline-block; background:#2a2d3a; border-radius:6px;
+                         padding:3px 10px; font-size:0.76rem; margin:3px; color:#e0e0e0; }
+        .skill-tag.missing { background:rgba(239,68,68,0.15); color:#f87171; }
+
+        .loading   { text-align:center; color:#888; padding:20px; display:none; }
+        .error-msg { color:#f87171; font-size:0.88rem; margin-top:10px; display:none; }
+
+        @media (max-width: 600px) {
+            .form-row, .form-row.three { grid-template-columns: 1fr; }
+            .debt-row { grid-template-columns: 1fr 1fr; }
+            .debt-row .form-group:nth-child(5) { grid-column: span 2; justify-self: end; }
+        }
+    </style>
+</head>
+<body>
+
+<h1>TriDomain Meta-Agent</h1>
+<p class="subtitle">Career · Health · Finance — powered by AI</p>
+
+<div class="card">
+
+    <!-- ── Core Profile ── -->
+    <div class="form-row">
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="name" value="Arjun">
+        </div>
+        <div class="form-group">
+            <label>Age</label>
+            <input type="number" id="age" value="28">
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Weight (kg)</label>
+            <input type="number" id="weight" value="75">
+        </div>
+        <div class="form-group">
+            <label>Height (cm)</label>
+            <input type="number" id="height" value="175">
+        </div>
+    </div>
+
+    <!-- ── Career ── -->
+    <div class="section-label career">Career</div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Location</label>
+            <input type="text" id="location" value="Bangalore">
+        </div>
+        <div class="form-group">
+            <label>Experience Level</label>
+            <select id="experience_level">
+                <option value="fresher">Fresher</option>
+                <option value="junior">Junior</option>
+                <option value="mid" selected>Mid</option>
+                <option value="senior">Senior</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Years Experience</label>
+            <input type="number" id="years_experience" value="3">
+        </div>
+        <div class="form-group">
+            <label>Timeline (months)</label>
+            <input type="number" id="timeline_months" value="6">
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Current Skills (comma separated)</label>
+            <input type="text" id="skills" placeholder="python, sql, excel">
+        </div>
+        <div class="form-group">
+            <label>Target Role</label>
+            <input type="text" id="target_role" value="data scientist">
+        </div>
+    </div>
+
+    <!-- ── Health ── -->
+    <div class="section-label health">Health</div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Gender</label>
+            <select id="gender">
+                <option value="male" selected>Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Fitness Goal</label>
+            <select id="fitness_goal">
+                <option value="general fitness" selected>General Fitness</option>
+                <option value="weight loss">Weight Loss</option>
+                <option value="muscle gain">Muscle Gain</option>
+                <option value="endurance">Endurance</option>
+                <option value="flexibility">Flexibility</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Sleep Hours</label>
+            <input type="number" id="sleep_hours" value="7" min="1" max="12" step="0.5">
+        </div>
+        <div class="form-group">
+            <label>Sleep Quality (1–10)</label>
+            <div class="slider-row">
+                <input type="range" id="sleep_quality" min="1" max="10" value="7"
+                       oninput="document.getElementById('sq_val').textContent=this.value">
+                <span class="slider-val" id="sq_val">7</span>
+            </div>
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Stress Level (1–10)</label>
+            <div class="slider-row">
+                <input type="range" id="stress_level" min="1" max="10" value="5"
+                       oninput="document.getElementById('sl_val').textContent=this.value">
+                <span class="slider-val" id="sl_val">5</span>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Mood Score (1–10)</label>
+            <div class="slider-row">
+                <input type="range" id="mood_score" min="1" max="10" value="7"
+                       oninput="document.getElementById('ms_val').textContent=this.value">
+                <span class="slider-val" id="ms_val">7</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Finance ── -->
+    <div class="section-label finance">Finance</div>
+
+    <!-- Basic income/expenses -->
+    <div class="form-row">
+        <div class="form-group">
+            <label>Monthly Income (₹)</label>
+            <input type="number" id="monthly_income" value="80000">
+        </div>
+        <div class="form-group">
+            <label>Monthly Expenses (₹)</label>
+            <input type="number" id="monthly_expenses" value="35000">
+        </div>
+    </div>
+
+    <!-- Categorised expenses -->
+    <div class="form-row three">
+        <div class="form-group">
+            <label>Housing (₹)</label>
+            <input type="number" id="exp_housing" value="12000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Food (₹)</label>
+            <input type="number" id="exp_food" value="8000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Transport (₹)</label>
+            <input type="number" id="exp_transport" value="5000" placeholder="0">
+        </div>
+    </div>
+    <div class="form-row three">
+        <div class="form-group">
+            <label>Entertainment (₹)</label>
+            <input type="number" id="exp_entertainment" value="6000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Utilities (₹)</label>
+            <input type="number" id="exp_utilities" value="4000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Healthcare (₹)</label>
+            <input type="number" id="exp_healthcare" value="2000" placeholder="0">
+        </div>
+    </div>
+
+    <!-- Investment / portfolio -->
+    <div class="form-row">
+        <div class="form-group">
+            <label>Risk Tolerance</label>
+            <select id="risk_tolerance">
+                <option value="conservative">Conservative</option>
+                <option value="moderate" selected>Moderate</option>
+                <option value="aggressive">Aggressive</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Retirement Age</label>
+            <input type="number" id="retirement_age" value="60">
+        </div>
+    </div>
+    <div class="form-row three">
+        <div class="form-group">
+            <label>Equity Portfolio (₹)</label>
+            <input type="number" id="port_equity" value="150000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Debt / Bonds (₹)</label>
+            <input type="number" id="port_debt" value="200000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>Gold (₹)</label>
+            <input type="number" id="port_gold" value="30000" placeholder="0">
+        </div>
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Current Retirement Savings (₹)</label>
+            <input type="number" id="retirement_savings" value="200000">
+        </div>
+        <div class="form-group">
+            <label>Monthly SIP / Contribution (₹)</label>
+            <input type="number" id="monthly_contribution" value="8000">
+        </div>
+    </div>
+
+    <!-- Tax deductions -->
+    <div class="form-row three">
+        <div class="form-group">
+            <label>80C Investments (₹)</label>
+            <input type="number" id="tax_80c" value="100000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>80D Health Insurance (₹)</label>
+            <input type="number" id="tax_80d" value="15000" placeholder="0">
+        </div>
+        <div class="form-group">
+            <label>NPS Contribution (₹)</label>
+            <input type="number" id="tax_nps" value="0" placeholder="0">
+        </div>
+    </div>
+
+    <!-- Debts -->
+    <div style="margin-top:6px;">
+        <label style="display:block; font-size:0.75rem; color:#888;
+                      text-transform:uppercase; letter-spacing:0.5px;
+                      margin-bottom:8px;">
+            Debts (loans, credit cards)
+        </label>
+        <div class="debt-row" style="margin-bottom:4px;">
+            <label style="font-size:0.7rem; color:#555;">Name</label>
+            <label style="font-size:0.7rem; color:#555;">Balance (₹)</label>
+            <label style="font-size:0.7rem; color:#555;">Rate (% p.a.)</label>
+            <label style="font-size:0.7rem; color:#555;">Min Payment (₹)</label>
+            <span></span>
+        </div>
+        <div id="debt-list"></div>
+        <button class="btn-add" onclick="addDebt()">+ Add Debt</button>
+    </div>
+    <div class="form-row" style="margin-top:12px;">
+        <div class="form-group">
+            <label>Total Monthly Debt Budget (₹)</label>
+            <input type="number" id="monthly_debt_payment" value="10000">
+        </div>
+        <div class="form-group">
+            <label>Annual Income override (₹, optional)</label>
+            <input type="number" id="annual_income" value="0" placeholder="Leave 0 to auto-calculate">
+        </div>
+    </div>
+
+    <!-- ── Query ── -->
+    <div class="section-label query">Your Query</div>
+    <div class="form-group" style="margin-bottom:20px;">
+        <label>Ask anything</label>
+        <textarea id="query"
+            placeholder="e.g. How do I invest wisely and reduce debt? or How do I become a data scientist?"></textarea>
+    </div>
+
+    <button class="btn-submit" id="submitBtn" onclick="submitQuery()">Ask Meta-Agent</button>
+    <div class="error-msg" id="errorMsg"></div>
+</div>
+
+<div class="loading" id="loading">Thinking across all domains...</div>
+
+<div class="response-card" id="responseCard">
+    <h2 style="margin-bottom:16px; font-size:1rem; color:#888;
+               text-transform:uppercase; letter-spacing:1px;">Response</h2>
+    <div id="responseContent"></div>
+</div>
+
+<script>
+// ── Debt management ───────────────────────────────────────────────────
+let debtCount = 0;
+
+function addDebt(name='', balance='', rate='', minPay='') {
+    debtCount++;
+    const id = debtCount;
+    const div = document.createElement('div');
+    div.className = 'debt-row';
+    div.id = `debt-${id}`;
+    div.innerHTML = `
+        <div class="form-group">
+            <input type="text"   placeholder="e.g. Credit Card"
+                   id="debt-name-${id}" value="${name}">
+        </div>
+        <div class="form-group">
+            <input type="number" placeholder="50000"
+                   id="debt-bal-${id}"  value="${balance}">
+        </div>
+        <div class="form-group">
+            <input type="number" placeholder="36"
+                   id="debt-rate-${id}" value="${rate}" step="0.1">
+        </div>
+        <div class="form-group">
+            <input type="number" placeholder="2500"
+                   id="debt-min-${id}"  value="${minPay}">
+        </div>
+        <button class="btn-remove" onclick="removeDebt(${id})" title="Remove">✕</button>
+    `;
+    document.getElementById('debt-list').appendChild(div);
+}
+
+function removeDebt(id) {
+    const el = document.getElementById(`debt-${id}`);
+    if (el) el.remove();
+}
+
+// Pre-fill one example debt row
+addDebt('Credit Card', 60000, 36, 2500);
+
+// ── Collect debts from UI ─────────────────────────────────────────────
+function collectDebts() {
+    const debts = [];
+    document.querySelectorAll('#debt-list .debt-row').forEach(row => {
+        const id = row.id.replace('debt-', '');
+        const name    = document.getElementById(`debt-name-${id}`)?.value?.trim();
+        const balance = parseFloat(document.getElementById(`debt-bal-${id}`)?.value);
+        const rate    = parseFloat(document.getElementById(`debt-rate-${id}`)?.value);
+        const minPay  = parseFloat(document.getElementById(`debt-min-${id}`)?.value);
+        if (name && balance > 0 && rate > 0 && minPay > 0) {
+            debts.push({ name, balance, interest_rate: rate, min_payment: minPay });
+        }
+    });
+    return debts;
+}
+
+// ── Submit ────────────────────────────────────────────────────────────
+async function submitQuery() {
+    const btn      = document.getElementById('submitBtn');
+    const loading  = document.getElementById('loading');
+    const respCard = document.getElementById('responseCard');
+    const errorMsg = document.getElementById('errorMsg');
+
+    const query = document.getElementById('query').value.trim();
+    if (!query) {
+        errorMsg.textContent = 'Please enter a query.';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    // Skills
+    const skillsRaw = document.getElementById('skills').value;
+    const skills = skillsRaw
+        ? skillsRaw.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)
+        : [];
+
+    // Expenses dict
+    const expenses = {};
+    ['housing','food','transport','entertainment','utilities','healthcare'].forEach(cat => {
+        const val = parseFloat(document.getElementById(`exp_${cat}`)?.value) || 0;
+        if (val > 0) expenses[cat] = val;
+    });
+
+    // Portfolio dict
+    const portfolio = {};
+    ['equity','debt','gold'].forEach(asset => {
+        const val = parseFloat(document.getElementById(`port_${asset}`)?.value) || 0;
+        if (val > 0) portfolio[asset] = val;
+    });
+
+    // Tax deductions
+    const tax_deductions = {};
+    const t80c = parseFloat(document.getElementById('tax_80c').value) || 0;
+    const t80d = parseFloat(document.getElementById('tax_80d').value) || 0;
+    const tnps = parseFloat(document.getElementById('tax_nps').value) || 0;
+    if (t80c) tax_deductions['80c'] = t80c;
+    if (t80d) tax_deductions['80d'] = t80d;
+    if (tnps) tax_deductions['nps'] = tnps;
+
+    const payload = {
+        name:                 document.getElementById('name').value,
+        age:                  parseInt(document.getElementById('age').value),
+        query,
+        // health
+        weight_kg:            parseFloat(document.getElementById('weight').value),
+        height_cm:            parseFloat(document.getElementById('height').value),
+        gender:               document.getElementById('gender').value,
+        fitness_goal:         document.getElementById('fitness_goal').value,
+        sleep_hours:          parseFloat(document.getElementById('sleep_hours').value),
+        sleep_quality:        parseInt(document.getElementById('sleep_quality').value),
+        stress_level:         parseInt(document.getElementById('stress_level').value),
+        mood_score:           parseInt(document.getElementById('mood_score').value),
+        // career
+        location:             document.getElementById('location').value,
+        experience_level:     document.getElementById('experience_level').value,
+        years_experience:     parseInt(document.getElementById('years_experience').value),
+        timeline_months:      parseInt(document.getElementById('timeline_months').value),
+        current_skills:       skills,
+        target_role:          document.getElementById('target_role').value,
+        // finance — basic
+        monthly_income:       parseFloat(document.getElementById('monthly_income').value),
+        monthly_expenses:     parseFloat(document.getElementById('monthly_expenses').value),
+        // finance — detailed
+        expenses,
+        portfolio,
+        risk_tolerance:       document.getElementById('risk_tolerance').value,
+        retirement_age:       parseInt(document.getElementById('retirement_age').value),
+        retirement_savings:   parseFloat(document.getElementById('retirement_savings').value),
+        monthly_contribution: parseFloat(document.getElementById('monthly_contribution').value),
+        annual_income:        parseFloat(document.getElementById('annual_income').value) || 0,
+        tax_deductions,
+        debts:                collectDebts(),
+        monthly_debt_payment: parseFloat(document.getElementById('monthly_debt_payment').value) || 0,
+    };
+
+    // UI state
+    btn.disabled = true;
+    btn.textContent = 'Thinking...';
+    loading.style.display = 'block';
+    respCard.style.display = 'none';
+    errorMsg.style.display = 'none';
+
+    try {
+        const res = await fetch('http://127.0.0.1:8000/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        renderResponse(data);
+    } catch (err) {
+        errorMsg.textContent = 'Cannot reach server. Make sure uvicorn is running on port 8000.';
+        errorMsg.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = 'Ask Meta-Agent';
+        loading.style.display = 'none';
+    }
+}
+
+// ── Render response ───────────────────────────────────────────────────
+function renderResponse(data) {
+    const card    = document.getElementById('responseCard');
+    const content = document.getElementById('responseContent');
+    let html = '';
+
+    // Intent
+    if (data.intent) {
+        const { domains, confidence, reasoning } = data.intent;
+        html += domains.map(d =>
+            `<span class="intent-badge">${d}</span>`
+        ).join('');
+        html += `<div class="confidence">Confidence: ${(confidence * 100).toFixed(0)}%</div>`;
+        html += `<div class="reasoning">"${reasoning}"</div>`;
+    }
+
+    // Agent responses
+    const responses = data.responses || [data];
+    responses.forEach(r => {
+        if (!r.domain) return;
+        html += `<div class="agent-response ${r.domain}">`;
+        html += `<div class="agent-domain">${r.domain} agent</div>`;
+
+        if (r.recommendation) {
+            html += `<div class="recommendation">${r.recommendation}</div>`;
+        }
+        if (r.reason) {
+            html += `<div class="reason">💡 ${r.reason}</div>`;
+        }
+
+        // Confidence bar
+        if (r.confidence !== undefined) {
+            const pct = (r.confidence * 100).toFixed(0);
+            html += `<div class="confidence-bar-wrap">
+                <div class="confidence-bar">
+                    <div class="confidence-fill" style="width:${pct}%"></div>
+                </div>
+                <span class="confidence-label">${pct}% confidence</span>
+            </div>`;
+        }
+
+        // Tools used
+        if (r.tools_used && r.tools_used.length) {
+            html += `<div class="tools-used">Tools: ${
+                r.tools_used.map(t => `<span>${t}</span>`).join(', ')
+            }</div>`;
+        }
+
+        // Health metrics
+        if (r.bmi) {
+            html += `<div class="metrics">
+                <div class="metric">BMI <span>${r.bmi.bmi}</span></div>
+                <div class="metric"><span>${r.bmi.category}</span></div>
+            </div>`;
+        }
+
+        // Finance metrics
+        if (r.savings) {
+            html += `<div class="metrics">
+                <div class="metric">Savings <span>₹${r.savings.savings?.toLocaleString('en-IN')}</span></div>
+                <div class="metric">Rate <span>${r.savings.rate_pct}%</span></div>`;
+            if (r.debt_ratio) {
+                html += `<div class="metric">Debt Ratio <span>${r.debt_ratio.debt_to_income_ratio} (${r.debt_ratio.status})</span></div>`;
+            }
+            html += `</div>`;
+        }
+
+        // Finance tool outputs
+        if (r.tool_outputs) {
+            const to = r.tool_outputs;
+
+            // Budget overspending
+            if (to.budget?.overspending?.length) {
+                html += `<div class="metrics" style="margin-top:8px;">
+                    <div class="metric" style="border-color:#f87171; color:#f87171;">
+                        Overspending: <span style="color:#f87171;">
+                            ${to.budget.overspending.join(', ')}
+                        </span>
+                    </div>
+                </div>`;
+            }
+
+            // Debt payoff
+            if (to.debt && !to.debt.error && !to.debt.note) {
+                html += `<div class="metrics" style="margin-top:8px;">
+                    <div class="metric">Debt payoff <span>${to.debt.avalanche.months} months</span></div>
+                    <div class="metric">Strategy <span>${to.debt.recommended_strategy}</span></div>
+                    <div class="metric">Total interest <span>₹${Math.round(to.debt.avalanche.total_interest).toLocaleString('en-IN')}</span></div>
+                </div>`;
+            }
+
+            // Retirement
+            if (to.retirement && !to.retirement.error) {
+                const ret = to.retirement;
+                const statusColor = ret.status === 'surplus' ? '#4ade80' :
+                                    ret.status === 'gap'     ? '#f87171' : '#f59e0b';
+                html += `<div class="metrics" style="margin-top:8px;">
+                    <div class="metric">Projected corpus
+                        <span>₹${Math.round(ret.projected_corpus/100000)}L</span>
+                    </div>
+                    <div class="metric">Needed
+                        <span>₹${Math.round(ret.corpus_needed/100000)}L</span>
+                    </div>
+                    <div class="metric" style="border-color:${statusColor}">
+                        Status <span style="color:${statusColor}">${ret.status}</span>
+                    </div>
+                </div>`;
+            }
+
+            // Tax
+            if (to.tax && !to.tax.error) {
+                html += `<div class="metrics" style="margin-top:8px;">
+                    <div class="metric">Recommended regime
+                        <span>${to.tax.recommended_regime.toUpperCase()}</span>
+                    </div>
+                    <div class="metric">Tax savings
+                        <span>₹${to.tax.tax_savings_vs_other?.toLocaleString('en-IN')}</span>
+                    </div>
+                </div>`;
+            }
+
+            // Investment rebalancing
+            if (to.investment && !to.investment.error && to.investment.rebalancing_deltas?.length) {
+                const buys  = to.investment.rebalancing_deltas.filter(d => d.action === 'buy');
+                const sells = to.investment.rebalancing_deltas.filter(d => d.action === 'sell');
+                if (buys.length || sells.length) {
+                    html += `<div class="metrics" style="margin-top:8px;">`;
+                    buys.forEach(d => {
+                        html += `<div class="metric" style="border-color:#4ade80">
+                            Buy ${d.asset} <span style="color:#4ade80">+₹${d.amount_inr.toLocaleString('en-IN')}</span>
+                        </div>`;
+                    });
+                    sells.forEach(d => {
+                        html += `<div class="metric" style="border-color:#f87171">
+                            Sell ${d.asset} <span style="color:#f87171">-₹${d.amount_inr.toLocaleString('en-IN')}</span>
+                        </div>`;
+                    });
+                    html += `</div>`;
+                }
+            }
+        }
+
+        // Career skill gap
+        if (r.skill_gap) {
+            const sg = r.skill_gap;
+            html += `<div class="skill-gap">
+                <h4>Skill Gap — ${sg.match_percentage}% match (${sg.status})</h4>`;
+            sg.current_skills?.forEach(s => {
+                html += `<span class="skill-tag">${s}</span>`;
+            });
+            sg.missing_skills?.forEach(s => {
+                html += `<span class="skill-tag missing">missing: ${s}</span>`;
+            });
+            html += `</div>`;
+        }
+
+        html += `</div>`;
+    });
+
+    content.innerHTML = html;
+    card.style.display = 'block';
     card.scrollIntoView({ behavior: 'smooth' });
 }
 </script>
