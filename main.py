@@ -236,15 +236,9 @@ def meta_agent(request: QueryRequest) -> dict:
         domains = intent["domains"]
     else:
         intent = {
-<<<<<<< HEAD
             "domains":    [request.domain],
             "confidence": 1.0,
             "reasoning":  "Manual domain selection"
-=======
-            "domains":   [request.domain],
-            "confidence": 1.0,
-            "reasoning":  "Manual domain selection",
->>>>>>> 913d84b (Update QueryRequest model with detailed fields for career, health, and finance domains, enhance finance-related features, and increment API version to 0.5.0)
         }
         domains = [request.domain]
 
@@ -264,7 +258,6 @@ def meta_agent(request: QueryRequest) -> dict:
                 "options": ["career", "health", "finance"],
             })
 
-<<<<<<< HEAD
     # ── Step 5: Build Response ────────────────────────────────────────
     result = {
         "status":            "success",
@@ -279,16 +272,6 @@ def meta_agent(request: QueryRequest) -> dict:
 
     return result
 # ── Routes ────────────────────────────────────────────────────────────
-=======
-    return {
-        "intent":           intent,
-        "responses":        responses,
-        "domains_activated": domains,
-    }
-
-
-# ── Routes ────────────────────────────────────────────────────────────────────
->>>>>>> 913d84b (Update QueryRequest model with detailed fields for career, health, and finance domains, enhance finance-related features, and increment API version to 0.5.0)
 @app.get("/")
 def root():
     return {"status": "live", "system": "TriDomain Meta-Agent v0.5"}
