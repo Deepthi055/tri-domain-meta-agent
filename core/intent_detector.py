@@ -170,7 +170,7 @@ def detect_intent(query: str) -> dict:
 
     if matched:
         return {
-            "domains": matched[:2],
+            "domains": matched,
             "confidence": 0.85,
             "reasoning": f"Keyword match: {', '.join(matched)}"
         }
