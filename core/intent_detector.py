@@ -99,14 +99,14 @@ def detect_intent(query: str) -> dict:
         "reasoning": "No clear domain detected — defaulting to career"
     }
     
-if "career" in matched and "finance" in matched:
+    if "career" in matched and "finance" in matched:
     return {
         "domains": ["career", "finance"],
         "confidence": 0.9,
         "reasoning": "Career growth + financial planning detected"
     }
 
-if "career" in matched and "health" in matched:
+    if "career" in matched and "health" in matched:
     return {
         "domains": ["career", "health"],
         "confidence": 0.9,
