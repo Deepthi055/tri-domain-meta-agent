@@ -1,5 +1,5 @@
 # import json
-# from core.llm_client import call_llm
+from core.llm_client import call_llm
 
 # INTENT_SYSTEM_PROMPT = """You are an intent detection engine inside a 
 # TriDomain AI system that handles Career, Health, and Finance queries.
