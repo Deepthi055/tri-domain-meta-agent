@@ -114,8 +114,80 @@ from core.llm_client import call_llm
 #     }
 
 
-def detect_intent(query: str) -> dict:
+# def detect_intent(query: str) -> dict:
 
+#     query_lower = query.lower().strip()
+
+#     if not query_lower:
+#         return {
+#             "domains": ["general"],
+#             "confidence": 0.0,
+#             "reasoning": "Empty query"
+#         }
+
+#     keyword_map = {
+#         "career": [
+#             "job", "work", "career", "skill", "resume", "cv",
+#             "interview", "promotion", "switch", "role", "hire",
+#             "scientist", "developer", "engineer", "analyst",
+#             "learn", "course", "salary", "linkedin", "data science",
+#             "placement", "internship", "fresher", "experience"
+#         ],
+#         "health": [
+#             "health", "weight", "bmi", "fitness", "exercise",
+#             "diet", "sick", "doctor", "sleep", "tired", "gym",
+#             "calories", "overweight", "fat", "muscle", "mental", "stress",
+#             "eat", "food", "nutrition", "lose weight", "gain weight"
+#         ],
+#         "finance": [
+#             "money", "saving", "invest", "debt", "loan", "budget",
+#             "expense", "income", "tax", "emi", "rent", "insurance",
+#             "sip", "ppf", "stock", "mutual fund", "earning",
+#             "spend", "finance", "bank", "credit", "debit",
+#             "financial", "stability", "wealth", "financial stability"
+#         ]
+#     }
+
+#     matched = []
+#     for domain, keywords in keyword_map.items():
+#         if any(kw in query_lower for kw in keywords):
+#             matched.append(domain)
+
+#     # 🔥 Multi-domain logic (FIXED POSITION)
+#     if "career" in matched and "finance" in matched:
+#         return {
+#             "domains": ["career", "finance"],
+#             "confidence": 0.9,
+#             "reasoning": "Career growth + financial planning detected"
+#         }
+
+#     if "career" in matched and "health" in matched:
+#         return {
+#             "domains": ["career", "health"],
+#             "confidence": 0.9,
+#             "reasoning": "Work + health signals detected"
+#         }
+
+#     if matched:
+#         return {
+#             "domains": matched,
+#             "confidence": 0.85,
+#             "reasoning": f"Keyword match: {', '.join(matched)}"
+#         }
+
+#     return {
+#         "domains": ["career"],
+#         "confidence": 0.5,
+#         "reasoning": "No clear domain detected — defaulting to career"
+#     }
+
+
+
+
+
+
+
+def detect_intent(query: str) -> dict:
     query_lower = query.lower().strip()
 
     if not query_lower:
@@ -136,7 +208,7 @@ def detect_intent(query: str) -> dict:
         "health": [
             "health", "weight", "bmi", "fitness", "exercise",
             "diet", "sick", "doctor", "sleep", "tired", "gym",
-            "calories", "overweight", "fat", "muscle", "mental",
+            "calories", "overweight", "fat", "muscle", "mental", "stress",
             "eat", "food", "nutrition", "lose weight", "gain weight"
         ],
         "finance": [
@@ -148,35 +220,44 @@ def detect_intent(query: str) -> dict:
         ]
     }
 
+    # 🔍 Detect domains
     matched = []
+    match_scores = {}
+
     for domain, keywords in keyword_map.items():
-        if any(kw in query_lower for kw in keywords):
+        score = 0
+        for kw in keywords:
+            if kw in query_lower:
+                score += 1
+
+        if score > 0:
             matched.append(domain)
+            match_scores[domain] = score
 
-    # 🔥 Multi-domain logic (FIXED POSITION)
-    if "career" in matched and "finance" in matched:
+    # 🚨 No match fallback
+    if not matched:
         return {
-            "domains": ["career", "finance"],
-            "confidence": 0.9,
-            "reasoning": "Career growth + financial planning detected"
+            "domains": ["general"],
+            "confidence": 0.5,
+            "reasoning": "No clear domain detected"
         }
 
-    if "career" in matched and "health" in matched:
-        return {
-            "domains": ["career", "health"],
-            "confidence": 0.9,
-            "reasoning": "Work + health signals detected"
-        }
+    # 🔥 Sort domains by strength (important for 3-domain queries)
+    matched = sorted(matched, key=lambda d: match_scores[d], reverse=True)
 
-    if matched:
-        return {
-            "domains": matched,
-            "confidence": 0.85,
-            "reasoning": f"Keyword match: {', '.join(matched)}"
-        }
+    # 🚀 Confidence calculation
+    if len(matched) == 1:
+        confidence = 0.85
+    elif len(matched) == 2:
+        confidence = 0.9
+    else:
+        confidence = 0.95  # all 3 domains → strongest signal
+
+    # 🧠 Reasoning
+    reasoning = f"Detected domains: {', '.join(matched)} based on keyword matches"
 
     return {
-        "domains": ["career"],
-        "confidence": 0.5,
-        "reasoning": "No clear domain detected — defaulting to career"
+        "domains": matched,   # ✅ NO LIMIT (supports 3 agents)
+        "confidence": confidence,
+        "reasoning": reasoning
     }
