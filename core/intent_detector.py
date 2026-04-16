@@ -82,14 +82,7 @@ def detect_intent(query: str) -> dict:
 
     matched = []
     for domain, keywords in keyword_map.items():
-        # if any(kw in query_lower for kw in keywords):
-        #     matched.append(domain)
-        match_score = 0
-        for kw in keywords:
-            if kw in query_lower:
-                match_score += 1
-
-        if match_score > 0:
+        if any(kw in query_lower for kw in keywords):
             matched.append(domain)
         pass
 
