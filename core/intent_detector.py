@@ -46,6 +46,74 @@ from core.llm_client import call_llm
 #         result["domains"] = ["general"]
 
 #     return result
+# def detect_intent(query: str) -> dict:
+
+#     query_lower = query.lower().strip()
+
+#     if not query_lower:
+#         return {
+#             "domains": ["general"],
+#             "confidence": 0.0,
+#             "reasoning": "Empty query"
+#         }
+
+#     keyword_map = {
+#         "career": [
+#             "job", "work", "career", "skill", "resume", "cv",
+#             "interview", "promotion", "switch", "role", "hire",
+#             "scientist", "developer", "engineer", "analyst",
+#             "learn", "course", "salary", "linkedin", "data science",
+#             "placement", "internship", "fresher", "experience"
+#         ],
+#         "health": [
+#             "health", "weight", "bmi", "fitness", "exercise",
+#             "diet", "sick", "doctor", "sleep", "tired", "gym",
+#             "calories", "overweight", "fat", "muscle", "mental",
+#             "eat", "food", "nutrition", "lose weight", "gain weight"
+#         ],
+#         "finance": [
+#             "money", "saving", "invest", "debt", "loan", "budget",
+#             "expense", "income", "tax", "emi", "rent", "insurance",
+#             "sip", "ppf", "stock", "mutual fund", "earning",
+#             "spend", "finance", "bank", "credit", "debit",
+#             "financial", "stability", "wealth", "financial stability"
+#         ]
+#     }
+
+#     matched = []
+#     for domain, keywords in keyword_map.items():
+#         if any(kw in query_lower for kw in keywords):
+#             matched.append(domain)
+#         pass
+
+#     if matched:
+#         return {
+#             "domains": matched[:2],
+#             "confidence": 0.85,
+#             "reasoning": f"Keyword match: {', '.join(matched)}"
+#         }
+
+#     return {
+#         "domains": ["career"],
+#         "confidence": 0.5,
+#         "reasoning": "No clear domain detected — defaulting to career"
+#     }
+    
+#     if "career" in matched and "finance" in matched:
+#     return {
+#         "domains": ["career", "finance"],
+#         "confidence": 0.9,
+#         "reasoning": "Career growth + financial planning detected"
+#     }
+
+#     if "career" in matched and "health" in matched:
+#     return {
+#         "domains": ["career", "health"],
+#         "confidence": 0.9,
+#         "reasoning": "Work + health signals detected"
+#     }
+
+
 def detect_intent(query: str) -> dict:
 
     query_lower = query.lower().strip()
@@ -84,7 +152,21 @@ def detect_intent(query: str) -> dict:
     for domain, keywords in keyword_map.items():
         if any(kw in query_lower for kw in keywords):
             matched.append(domain)
-        pass
+
+    # 🔥 Multi-domain logic (FIXED POSITION)
+    if "career" in matched and "finance" in matched:
+        return {
+            "domains": ["career", "finance"],
+            "confidence": 0.9,
+            "reasoning": "Career growth + financial planning detected"
+        }
+
+    if "career" in matched and "health" in matched:
+        return {
+            "domains": ["career", "health"],
+            "confidence": 0.9,
+            "reasoning": "Work + health signals detected"
+        }
 
     if matched:
         return {
@@ -97,18 +179,4 @@ def detect_intent(query: str) -> dict:
         "domains": ["career"],
         "confidence": 0.5,
         "reasoning": "No clear domain detected — defaulting to career"
-    }
-    
-    if "career" in matched and "finance" in matched:
-    return {
-        "domains": ["career", "finance"],
-        "confidence": 0.9,
-        "reasoning": "Career growth + financial planning detected"
-    }
-
-    if "career" in matched and "health" in matched:
-    return {
-        "domains": ["career", "health"],
-        "confidence": 0.9,
-        "reasoning": "Work + health signals detected"
     }
