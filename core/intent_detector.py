@@ -75,7 +75,8 @@ def detect_intent(query: str) -> dict:
             "money", "saving", "invest", "debt", "loan", "budget",
             "expense", "income", "tax", "emi", "rent", "insurance",
             "sip", "ppf", "stock", "mutual fund", "earning",
-            "spend", "finance", "bank", "credit", "debit"
+            "spend", "finance", "bank", "credit", "debit",
+            "financial", "stability", "wealth", "financial stability"
         ]
     }
 
