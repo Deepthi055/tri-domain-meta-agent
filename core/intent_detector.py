@@ -1,5 +1,5 @@
 # import json
-# from core.llm_client import call_llm
+from core.llm_client import call_llm
 
 # INTENT_SYSTEM_PROMPT = """You are an intent detection engine inside a 
 # TriDomain AI system that handles Career, Health, and Finance queries.
@@ -46,8 +46,148 @@
 #         result["domains"] = ["general"]
 
 #     return result
-def detect_intent(query: str) -> dict:
+# def detect_intent(query: str) -> dict:
 
+#     query_lower = query.lower().strip()
+
+#     if not query_lower:
+#         return {
+#             "domains": ["general"],
+#             "confidence": 0.0,
+#             "reasoning": "Empty query"
+#         }
+
+#     keyword_map = {
+#         "career": [
+#             "job", "work", "career", "skill", "resume", "cv",
+#             "interview", "promotion", "switch", "role", "hire",
+#             "scientist", "developer", "engineer", "analyst",
+#             "learn", "course", "salary", "linkedin", "data science",
+#             "placement", "internship", "fresher", "experience"
+#         ],
+#         "health": [
+#             "health", "weight", "bmi", "fitness", "exercise",
+#             "diet", "sick", "doctor", "sleep", "tired", "gym",
+#             "calories", "overweight", "fat", "muscle", "mental",
+#             "eat", "food", "nutrition", "lose weight", "gain weight"
+#         ],
+#         "finance": [
+#             "money", "saving", "invest", "debt", "loan", "budget",
+#             "expense", "income", "tax", "emi", "rent", "insurance",
+#             "sip", "ppf", "stock", "mutual fund", "earning",
+#             "spend", "finance", "bank", "credit", "debit",
+#             "financial", "stability", "wealth", "financial stability"
+#         ]
+#     }
+
+#     matched = []
+#     for domain, keywords in keyword_map.items():
+#         if any(kw in query_lower for kw in keywords):
+#             matched.append(domain)
+#         pass
+
+#     if matched:
+#         return {
+#             "domains": matched[:2],
+#             "confidence": 0.85,
+#             "reasoning": f"Keyword match: {', '.join(matched)}"
+#         }
+
+#     return {
+#         "domains": ["career"],
+#         "confidence": 0.5,
+#         "reasoning": "No clear domain detected — defaulting to career"
+#     }
+    
+#     if "career" in matched and "finance" in matched:
+#     return {
+#         "domains": ["career", "finance"],
+#         "confidence": 0.9,
+#         "reasoning": "Career growth + financial planning detected"
+#     }
+
+#     if "career" in matched and "health" in matched:
+#     return {
+#         "domains": ["career", "health"],
+#         "confidence": 0.9,
+#         "reasoning": "Work + health signals detected"
+#     }
+
+
+# def detect_intent(query: str) -> dict:
+
+#     query_lower = query.lower().strip()
+
+#     if not query_lower:
+#         return {
+#             "domains": ["general"],
+#             "confidence": 0.0,
+#             "reasoning": "Empty query"
+#         }
+
+#     keyword_map = {
+#         "career": [
+#             "job", "work", "career", "skill", "resume", "cv",
+#             "interview", "promotion", "switch", "role", "hire",
+#             "scientist", "developer", "engineer", "analyst",
+#             "learn", "course", "salary", "linkedin", "data science",
+#             "placement", "internship", "fresher", "experience"
+#         ],
+#         "health": [
+#             "health", "weight", "bmi", "fitness", "exercise",
+#             "diet", "sick", "doctor", "sleep", "tired", "gym",
+#             "calories", "overweight", "fat", "muscle", "mental", "stress",
+#             "eat", "food", "nutrition", "lose weight", "gain weight"
+#         ],
+#         "finance": [
+#             "money", "saving", "invest", "debt", "loan", "budget",
+#             "expense", "income", "tax", "emi", "rent", "insurance",
+#             "sip", "ppf", "stock", "mutual fund", "earning",
+#             "spend", "finance", "bank", "credit", "debit",
+#             "financial", "stability", "wealth", "financial stability"
+#         ]
+#     }
+
+#     matched = []
+#     for domain, keywords in keyword_map.items():
+#         if any(kw in query_lower for kw in keywords):
+#             matched.append(domain)
+
+#     # 🔥 Multi-domain logic (FIXED POSITION)
+#     if "career" in matched and "finance" in matched:
+#         return {
+#             "domains": ["career", "finance"],
+#             "confidence": 0.9,
+#             "reasoning": "Career growth + financial planning detected"
+#         }
+
+#     if "career" in matched and "health" in matched:
+#         return {
+#             "domains": ["career", "health"],
+#             "confidence": 0.9,
+#             "reasoning": "Work + health signals detected"
+#         }
+
+#     if matched:
+#         return {
+#             "domains": matched,
+#             "confidence": 0.85,
+#             "reasoning": f"Keyword match: {', '.join(matched)}"
+#         }
+
+#     return {
+#         "domains": ["career"],
+#         "confidence": 0.5,
+#         "reasoning": "No clear domain detected — defaulting to career"
+#     }
+
+
+
+
+
+
+
+def detect_intent(query: str) -> dict:
     query_lower = query.lower().strip()
 
     if not query_lower:
@@ -68,31 +208,56 @@ def detect_intent(query: str) -> dict:
         "health": [
             "health", "weight", "bmi", "fitness", "exercise",
             "diet", "sick", "doctor", "sleep", "tired", "gym",
-            "calories", "overweight", "fat", "muscle", "mental",
+            "calories", "overweight", "fat", "muscle", "mental", "stress",
             "eat", "food", "nutrition", "lose weight", "gain weight"
         ],
         "finance": [
             "money", "saving", "invest", "debt", "loan", "budget",
             "expense", "income", "tax", "emi", "rent", "insurance",
             "sip", "ppf", "stock", "mutual fund", "earning",
-            "spend", "finance", "bank", "credit", "debit"
+            "spend", "finance", "bank", "credit", "debit",
+            "financial", "stability", "wealth", "financial stability"
         ]
     }
 
+    # 🔍 Detect domains
     matched = []
-    for domain, keywords in keyword_map.items():
-        if any(kw in query_lower for kw in keywords):
-            matched.append(domain)
+    match_scores = {}
 
-    if matched:
+    for domain, keywords in keyword_map.items():
+        score = 0
+        for kw in keywords:
+            if kw in query_lower:
+                score += 1
+
+        if score > 0:
+            matched.append(domain)
+            match_scores[domain] = score
+
+    # 🚨 No match fallback
+    if not matched:
         return {
-            "domains": matched[:2],
-            "confidence": 0.85,
-            "reasoning": f"Keyword match: {', '.join(matched)}"
+            "domains": ["general"],
+            "confidence": 0.5,
+            "reasoning": "No clear domain detected"
         }
 
+    # 🔥 Sort domains by strength (important for 3-domain queries)
+    matched = sorted(matched, key=lambda d: match_scores[d], reverse=True)
+
+    # 🚀 Confidence calculation
+    if len(matched) == 1:
+        confidence = 0.85
+    elif len(matched) == 2:
+        confidence = 0.9
+    else:
+        confidence = 0.95  # all 3 domains → strongest signal
+
+    # 🧠 Reasoning
+    reasoning = f"Detected domains: {', '.join(matched)} based on keyword matches"
+
     return {
-        "domains": ["career"],
-        "confidence": 0.5,
-        "reasoning": "No clear domain detected — defaulting to career"
+        "domains": matched,   # ✅ NO LIMIT (supports 3 agents)
+        "confidence": confidence,
+        "reasoning": reasoning
     }
