@@ -7,6 +7,13 @@ from tools.calculators import (
     learning_path_generator
 )
 
+# ── RAG import (safe — won't crash if index not built yet) ────
+try:
+    from rag.retriever import retrieve_as_context
+    RAG_AVAILABLE = True
+except Exception:
+    RAG_AVAILABLE = False
+
 CAREER_SYSTEM_PROMPT = """You are a specialist career advisor inside a
 TriDomain AI system. You have deep expertise in:
 - Career transitions and skill gap analysis
@@ -21,6 +28,7 @@ YOUR RULES:
 3. Always consider the user's age and current stage
 4. Tailor advice to the Indian job market unless stated otherwise
 5. Always reference the tool data provided — do not ignore it
+6. If knowledge base context is provided, use it to enrich your advice
 
 CRITICAL: Respond ONLY with valid JSON in exactly this format:
 {
@@ -30,7 +38,7 @@ CRITICAL: Respond ONLY with valid JSON in exactly this format:
 }"""
 
 
-def run(request) -> dict:
+def run(request, constraints: str = "") -> dict:
     current_skills   = getattr(request, 'current_skills', [])
     target_role      = getattr(request, 'target_role', 'data scientist')
     location         = getattr(request, 'location', 'Bangalore')
@@ -40,18 +48,28 @@ def run(request) -> dict:
     timeline_months  = getattr(request, 'timeline_months', 6)
     resume_text      = getattr(request, 'resume_text', '')
 
-    # Run all tools
+    # ── Run all tools ─────────────────────────────────────────
     gap_data    = skill_gap_analyzer(current_skills, target_role)
     jobs_data   = job_search(current_skills, location, experience_level)
     salary_data = salary_benchmark(target_role, location, years_experience)
     path_data   = learning_path_generator(target_role, current_level, timeline_months)
 
-    # Resume only runs if user provided resume text
     resume_data = None
     if resume_text:
         resume_data = resume_optimizer(resume_text, target_role)
 
     top_job = jobs_data['jobs'][0] if jobs_data['jobs'] else None
+
+    # ── RAG: Retrieve relevant context ────────────────────────
+    rag_context = ""
+    if RAG_AVAILABLE:
+        try:
+            rag_context = retrieve_as_context(request.query, top_k=3)
+        except Exception as e:
+            print(f"[RAG] Retrieval failed: {e}")
+
+    # ── Build prompt ──────────────────────────────────────────
+    system_prompt = CAREER_SYSTEM_PROMPT + constraints
 
     user_message = f"""User profile:
 - Name: {request.name}, Age: {request.age}
@@ -63,17 +81,18 @@ def run(request) -> dict:
 - Salary Range: Rs.{salary_data['market_range_lpa']['min']}-{salary_data['market_range_lpa']['max']} LPA
 - Learning Path: {path_data['total_weeks_required']} weeks needed | Feasible: {path_data['feasible']}
 {f'- Resume ATS Score: {resume_data["ats_score"]}/100' if resume_data else ''}
-
+{rag_context}
 Give specific career advice based on ALL this data."""
 
-    llm_response = call_llm(CAREER_SYSTEM_PROMPT, user_message, temperature=0.7)
+    llm_response = call_llm(system_prompt, user_message, temperature=0.7)
 
     result = {
-        "domain": "career",
-        "skill_gap": gap_data,
-        "job_matches": jobs_data,
+        "domain":           "career",
+        "skill_gap":        gap_data,
+        "job_matches":      jobs_data,
         "salary_benchmark": salary_data,
-        "learning_path": path_data,
+        "learning_path":    path_data,
+        "rag_used":         RAG_AVAILABLE and bool(rag_context),
         **llm_response
     }
 

@@ -2,3 +2,5 @@
 __pycache__/
 *.pyc
 test_groq.py
+rag/career_index.faiss
+rag/career_meta.pkl

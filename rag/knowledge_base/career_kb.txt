@@ -1,0 +1,105 @@
+DOCUMENT: Data Science Career Guide
+SOURCE: TriDomain Career KB v1.0
+
+Data science is one of the fastest growing fields in India.
+The average salary for a data scientist in Bangalore ranges from 8 to 25 LPA depending on experience.
+Entry level data scientists with 0-2 years experience earn between 4 to 10 LPA.
+Mid level data scientists with 3-5 years experience earn between 12 to 20 LPA.
+Senior data scientists with 6+ years experience earn between 20 to 40 LPA.
+
+---
+
+DOCUMENT: Essential Skills for Data Science
+SOURCE: TriDomain Career KB v1.0
+
+The most in-demand skills for data science roles in 2024 are:
+1. Python programming — required by 95% of data science job postings
+2. SQL — required by 87% of data science job postings
+3. Machine learning — required by 82% of data science job postings
+4. Statistics and probability — required by 78% of data science job postings
+5. Data visualization (Tableau, Power BI, Matplotlib) — required by 70%
+6. Deep learning and neural networks — required by 55% of senior roles
+7. Cloud platforms (AWS, GCP, Azure) — required by 60% of senior roles
+8. Natural language processing — required by 40% of data science roles
+
+---
+
+DOCUMENT: Career Transition Guide
+SOURCE: TriDomain Career KB v1.0
+
+Switching careers to data science from a non-technical background is achievable in 6-18 months.
+The recommended learning path for career transition:
+Phase 1: Python fundamentals — 4 weeks — Kaggle Python course is free and highly rated
+Phase 2: Statistics and mathematics — 4 weeks — Khan Academy Statistics is recommended
+Phase 3: Machine learning fundamentals — 6 weeks — Andrew Ng Coursera course is industry standard
+Phase 4: SQL and databases — 2 weeks — Mode Analytics SQL tutorial is free
+Phase 5: Portfolio projects — 4 weeks — Build 2-3 projects on Kaggle competitions
+Phase 6: Job preparation — 2 weeks — Resume, LinkedIn, mock interviews
+
+Never quit your current job before completing at least Phase 3 and having 2 portfolio projects.
+Financial safety net of 6 months expenses is recommended before full transition.
+
+---
+
+DOCUMENT: Resume and Portfolio Guide
+SOURCE: TriDomain Career KB v1.0
+
+A strong data science resume should include:
+- Quantified achievements: "Improved model accuracy by 15%" not "worked on ML models"
+- GitHub portfolio with at least 2-3 projects with README documentation
+- Kaggle profile showing competition participation and notebooks
+- LinkedIn profile with skills section matching job descriptions
+- Online certifications from Coursera, edX, or Google are valued by Indian employers
+
+Top companies hiring data scientists in India:
+Flipkart, Amazon, Google, Microsoft, Walmart Labs, PhonePe, Swiggy, Zomato, Razorpay, CRED
+
+---
+
+DOCUMENT: Salary Negotiation Guide
+SOURCE: TriDomain Career KB v1.0
+
+Salary negotiation tips for Indian job market:
+1. Always research market rates on Glassdoor, AmbitionBox, and Levels.fyi before negotiating
+2. 80% of job offers in India have room for 10-20% negotiation
+3. Never reveal your current salary if possible — focus on market rate
+4. Ask for time to consider offers — never accept on the spot
+5. Consider total compensation: base salary, variable pay, ESOPs, health insurance
+6. For experienced professionals, job switching typically yields 30-50% salary increase
+7. Internal promotions in India average only 10-15% increase
+8. The best time to switch jobs is 2-3 years into a role
+
+---
+
+DOCUMENT: Skill Gap Analysis Framework
+SOURCE: TriDomain Career KB v1.0
+
+How to close skill gaps efficiently:
+- Focus on the top 3 missing skills first — do not try to learn everything at once
+- Dedicate minimum 2 hours per day for consistent progress
+- Project-based learning is 3x more effective than theory alone
+- Join communities: Kaggle, GitHub, local Python meetups in Bangalore
+- Mock interviews on platforms like Pramp and InterviewBit improve success rate by 40%
+- Getting a mentor accelerates learning by 60% according to industry studies
+
+Common mistakes during career transition:
+1. Learning too many tools without mastering any
+2. Not building a portfolio while learning
+3. Waiting until "ready" to apply — start applying at 70% readiness
+4. Ignoring soft skills — communication is rated highly by Indian tech companies
+5. Not networking — 60% of jobs in India are filled through referrals
+
+---
+
+DOCUMENT: Work Life Balance and Career Stress
+SOURCE: TriDomain Career KB v1.0
+
+Managing stress during career transition:
+- Career transitions are stressful — this is normal and temporary
+- Set realistic timelines — rushing increases anxiety and reduces learning quality
+- Maintain current job performance during transition to avoid termination
+- Talk to your manager about growth opportunities before deciding to switch
+- Burnout is a real risk — schedule regular breaks and maintain hobbies
+- If job stress is severely affecting health, consult a professional counselor
+- Never make major career decisions during periods of extreme stress
+- Financial stress compounds career stress — maintain emergency fund of 6 months
