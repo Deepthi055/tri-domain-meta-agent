@@ -35,8 +35,16 @@ CRITICAL: Respond ONLY with valid JSON in exactly this format:
 
 def run(request) -> dict:
     # Core tools — always run
-    bmi_data     = calculate_bmi(request.weight_kg, request.height_cm)
-    fitness_data = fitness_score(request.age, request.weight_kg, request.height_cm)
+    bmi_data = calculate_bmi(request.weight_kg, request.height_cm)
+    fitness_data = fitness_score(
+        request.age,
+        request.weight_kg,
+        request.height_cm,
+        getattr(request, 'sleep_quality', 7),
+        getattr(request, 'stress_level', 5),
+        getattr(request, 'mood_score', 7),
+        getattr(request, 'available_days', 3)
+    )
 
     # Workout planner
     workout_data = workout_planner(

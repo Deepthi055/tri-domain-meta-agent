@@ -1,3 +1,6 @@
+import re
+
+
 BLOCKED_KEYWORDS = [
     # Violence
     "hurt", "kill", "harm", "attack", "weapon", "bomb", "poison",
@@ -44,6 +47,61 @@ DOMAIN_KEYWORDS = {
     ]
 }
 
+CAREER_INTENT_PHRASES = [
+    "want to become",
+    "want to be",
+    "become a",
+    "become an",
+    "looking for a job",
+    "switch careers",
+    "change career",
+    "career advice",
+    "career growth",
+    "job advice",
+]
+
+CAREER_ROLE_KEYWORDS = [
+    "analyst",
+    "data analyst",
+    "data scientist",
+    "scientist",
+    "developer",
+    "engineer",
+    "manager",
+    "product manager",
+    "designer",
+    "tester",
+]
+
+QUERY_NORMALIZATIONS = {
+    "anlyst": "analyst",
+    "anlysit": "analyst",
+    "analit": "analyst",
+    "datascientist": "data scientist",
+    "dataanalyst": "data analyst",
+    "uiux": "ui ux",
+}
+
+
+def normalize_query(query: str) -> str:
+    normalized = query.lower().strip()
+    for source, target in QUERY_NORMALIZATIONS.items():
+        normalized = normalized.replace(source, target)
+    return normalized
+
+
+def has_blocked_keyword(query: str, keyword: str) -> bool:
+    """
+    Match blocked keywords safely:
+    - multi-word phrase: substring match
+    - single word: whole-word regex match (prevents false positives like kill in skills)
+    """
+    if " " in keyword:
+        return keyword in query
+
+    pattern = rf"\b{re.escape(keyword)}\b"
+    return re.search(pattern, query) is not None
+
 
 def check_safety(query: str) -> dict:
     """
@@ -54,11 +112,11 @@ def check_safety(query: str) -> dict:
         reason       → why it was blocked
         message      → message to show user
     """
-    query_lower = query.lower()
+    query_lower = normalize_query(query)
 
     # Hard block — never proceed
     for keyword in BLOCKED_KEYWORDS:
-        if keyword in query_lower:
+        if has_blocked_keyword(query_lower, keyword):
             return {
                 "is_safe":      False,
                 "is_sensitive": False,
@@ -90,12 +148,20 @@ def check_relevance(query: str) -> dict:
     Checks if query is related to Career, Health, or Finance.
     Blocks completely off-topic queries.
     """
-    query_lower = query.lower()
+    query_lower = normalize_query(query)
     matched     = []
 
     for domain, keywords in DOMAIN_KEYWORDS.items():
         if any(kw in query_lower for kw in keywords):
             matched.append(domain)
+
+    # Make career queries more forgiving when the user expresses intent to
+    # become or switch into a role, even if the wording is short or informal.
+    has_career_intent = any(phrase in query_lower for phrase in CAREER_INTENT_PHRASES)
+    has_career_role = any(role in query_lower for role in CAREER_ROLE_KEYWORDS)
+
+    if not matched and has_career_intent and has_career_role:
+        matched.append("career")
 
     if not matched:
         return {

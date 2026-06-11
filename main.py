@@ -114,10 +114,12 @@
 
 
 import os
+from pathlib import Path
 from fastapi import FastAPI
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 import agents.career_agent as career
 import agents.health_agent as health
 import agents.finance_agent as finance
@@ -125,6 +127,8 @@ from core.intent_detector import detect_intent
 from core.safety_layer import check_safety, check_relevance
 
 load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent
+INDEX_FILE = BASE_DIR / "index.html"
 
 app = FastAPI(title="TriDomain Meta-Agent", version="0.5.0")
 
@@ -245,17 +249,25 @@ def meta_agent(request: QueryRequest) -> dict:
     # ── Step 4: Route to Agents ───────────────────────────────────────
     responses = []
     for domain in domains:
-        if domain == "career":
-            responses.append(career.run(request))
-        elif domain == "health":
-            responses.append(health.run(request))
-        elif domain == "finance":
-            responses.append(finance.run(request))
-        elif domain == "general":
+        try:
+            if domain == "career":
+                responses.append(career.run(request))
+            elif domain == "health":
+                responses.append(health.run(request))
+            elif domain == "finance":
+                responses.append(finance.run(request))
+            elif domain == "general":
+                responses.append({
+                    "domain":  "general",
+                    "message": "Please specify a domain.",
+                    "options": ["career", "health", "finance"],
+                })
+        except Exception as exc:
             responses.append({
-                "domain":  "general",
-                "message": "Please specify a domain.",
-                "options": ["career", "health", "finance"],
+                "domain": domain,
+                "error": "agent_failure",
+                "message": f"{domain} agent failed to process request",
+                "reason": str(exc)
             })
 
     # ── Step 5: Build Response ────────────────────────────────────────
@@ -272,8 +284,15 @@ def meta_agent(request: QueryRequest) -> dict:
 
     return result
 # ── Routes ────────────────────────────────────────────────────────────
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
+    if INDEX_FILE.exists():
+        return FileResponse(INDEX_FILE)
+    return {"status": "error", "message": "Frontend file not found"}
+
+
+@app.get("/api-status")
+def api_status():
     return {"status": "live", "system": "TriDomain Meta-Agent v0.5"}
 
 

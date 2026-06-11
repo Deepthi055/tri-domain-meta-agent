@@ -447,47 +447,70 @@ def learning_path_generator(goal: str, current_level: str, timeline_months: int)
             f"Timeline is tight. You need {weekly_hours} hrs/week. Consider extending to {round(total_weeks/4)} months."
         )
     }
-def fitness_score(age: int, weight_kg: float, height_cm: float) -> dict:
+def fitness_score(
+    age: int,
+    weight_kg: float,
+    height_cm: float,
+    sleep_quality: int = None,
+    stress_level: int = None,
+    mood_score: int = None,
+    active_days_per_week: int = None
+) -> dict:
     height_m = height_cm / 100
     bmi = round(weight_kg / (height_m ** 2), 1)
 
-    # BMI component (0-50 points)
+    # BMI component (0-35 points)
     if 18.5 <= bmi <= 24.9:
-        bmi_score = 50
-    elif 17.0 <= bmi < 18.5 or 25.0 <= bmi <= 27.0:
         bmi_score = 35
+    elif 17.0 <= bmi < 18.5 or 25.0 <= bmi <= 27.0:
+        bmi_score = 25
     elif 15.0 <= bmi < 17.0 or 27.0 < bmi <= 30.0:
-        bmi_score = 20
+        bmi_score = 15
     else:
         bmi_score = 5
 
-    # Age component (0-30 points)
+    # Age component (0-15 points)
     if age < 30:
-        age_score = 30
-    elif age < 40:
-        age_score = 25
-    elif age < 50:
-        age_score = 20
-    else:
         age_score = 15
+    elif age < 40:
+        age_score = 13
+    elif age < 50:
+        age_score = 11
+    else:
+        age_score = 8
 
-    # Ideal weight range component (0-20 points)
+    # Ideal weight range component (0-15 points)
     ideal_min = round(18.5 * (height_m ** 2), 1)
     ideal_max = round(24.9 * (height_m ** 2), 1)
-    in_range  = ideal_min <= weight_kg <= ideal_max
+    in_range = ideal_min <= weight_kg <= ideal_max
     weight_gap = 0 if in_range else min(
         abs(weight_kg - ideal_min),
         abs(weight_kg - ideal_max)
     )
-    range_score = max(0, 20 - int(weight_gap))
+    range_score = max(0, 15 - int(weight_gap * 1.5))
 
-    total = bmi_score + age_score + range_score
+    # Lifestyle components (0-35 points total)
+    sleep_q = 5 if sleep_quality is None else max(1, min(10, int(sleep_quality)))
+    stress = 5 if stress_level is None else max(1, min(10, int(stress_level)))
+    mood = 5 if mood_score is None else max(1, min(10, int(mood_score)))
+    active_days = 3 if active_days_per_week is None else max(0, min(7, int(active_days_per_week)))
 
-    if total >= 80:
+    sleep_component = round((sleep_q / 10) * 15, 1)  # 0-15
+    stress_component = round(((11 - stress) / 10) * 5, 1)  # 0-5 (lower stress is better)
+    mood_component = round((mood / 10) * 5, 1)  # 0-5
+    activity_component = min(10, active_days * 2)  # 0-10
+
+    total = round(
+        bmi_score + age_score + range_score +
+        sleep_component + stress_component + mood_component + activity_component,
+        1
+    )
+
+    if total >= 85:
         level = "excellent"
-    elif total >= 60:
+    elif total >= 70:
         level = "good"
-    elif total >= 40:
+    elif total >= 50:
         level = "average"
     else:
         level = "needs attention"
@@ -497,7 +520,16 @@ def fitness_score(age: int, weight_kg: float, height_cm: float) -> dict:
         "fitness_level": level,
         "bmi": bmi,
         "ideal_weight_range_kg": {"min": ideal_min, "max": ideal_max},
-        "weight_to_lose_kg": round(max(0, weight_kg - ideal_max), 1)
+        "weight_to_lose_kg": round(max(0, weight_kg - ideal_max), 1),
+        "score_breakdown": {
+            "bmi_component": bmi_score,
+            "age_component": age_score,
+            "weight_range_component": range_score,
+            "sleep_component": sleep_component,
+            "stress_component": stress_component,
+            "mood_component": mood_component,
+            "activity_component": activity_component
+        }
     }
 def workout_planner(fitness_goal: str, experience_level: str, available_days: int) -> dict:
     workouts = {

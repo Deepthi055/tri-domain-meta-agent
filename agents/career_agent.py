@@ -58,6 +58,16 @@ def run(request, constraints: str = "") -> dict:
     if resume_text:
         resume_data = resume_optimizer(resume_text, target_role)
 
+    # Keep the agent resilient when a custom/unknown target role is provided.
+    gap_match_pct = gap_data.get("match_percentage") if isinstance(gap_data, dict) else None
+    gap_missing = gap_data.get("missing_skills") if isinstance(gap_data, dict) else None
+    gap_status = gap_data.get("status") if isinstance(gap_data, dict) else None
+    gap_error = gap_data.get("error") if isinstance(gap_data, dict) else None
+
+    gap_match_text = f"{gap_match_pct}%" if gap_match_pct is not None else "N/A"
+    gap_missing_text = gap_missing if gap_missing is not None else []
+    gap_status_text = gap_status if gap_status is not None else ("role not mapped" if gap_error else "N/A")
+
     top_job = jobs_data['jobs'][0] if jobs_data['jobs'] else None
 
     # ── RAG: Retrieve relevant context ────────────────────────
@@ -76,11 +86,12 @@ def run(request, constraints: str = "") -> dict:
 - Query: {request.query}
 - Target Role: {target_role}
 - Current Skills: {current_skills}
-- Skill Gap: {gap_data['match_percentage']}% match | Missing: {gap_data['missing_skills']}
+- Skill Gap: {gap_match_text} match | Missing: {gap_missing_text} | Status: {gap_status_text}
 - Top Job Match: {top_job['title'] + ' at ' + str(top_job['match_score']) + '%' if top_job else 'None found'}
 - Salary Range: Rs.{salary_data['market_range_lpa']['min']}-{salary_data['market_range_lpa']['max']} LPA
 - Learning Path: {path_data['total_weeks_required']} weeks needed | Feasible: {path_data['feasible']}
 {f'- Resume ATS Score: {resume_data["ats_score"]}/100' if resume_data else ''}
+{f'- Skill-gap note: {gap_error}' if gap_error else ''}
 {rag_context}
 Give specific career advice based on ALL this data."""
 

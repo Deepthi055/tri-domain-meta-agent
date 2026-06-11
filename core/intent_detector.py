@@ -1,5 +1,6 @@
 # import json
 from core.llm_client import call_llm
+from core.safety_layer import normalize_query
 
 # INTENT_SYSTEM_PROMPT = """You are an intent detection engine inside a 
 # TriDomain AI system that handles Career, Health, and Finance queries.
@@ -188,7 +189,7 @@ from core.llm_client import call_llm
 
 
 def detect_intent(query: str) -> dict:
-    query_lower = query.lower().strip()
+    query_lower = normalize_query(query)
 
     if not query_lower:
         return {
