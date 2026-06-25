@@ -330,7 +330,8 @@ Based on these specific numbers, provide tailored financial advice."""
             "status": "healthy" if ratio < 0.5 else "concerning",
         }
 
-    return {
+  # ── Build result dict ─────────────────────────────────────────────
+    result = {
         "domain":       "finance",
         "tools_used":   active_tools,
         "tool_outputs": tool_outputs,
@@ -339,3 +340,9 @@ Based on these specific numbers, provide tailored financial advice."""
         "savings":      savings_shortcut,
         "debt_ratio":   debt_ratio_shortcut,
     }
+
+    # ── Add explainability layer ──────────────────────────────────────
+    from core.explainability import build_explainability
+    result["explainability"] = build_explainability("finance", result, request)
+
+    return result

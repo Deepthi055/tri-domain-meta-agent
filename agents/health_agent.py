@@ -102,16 +102,22 @@ def run(request) -> dict:
 
 Give specific health advice based on ALL this data."""
 
+    from core.explainability import build_explainability
+
     llm_response = call_llm(HEALTH_SYSTEM_PROMPT, user_message, temperature=0.3)
 
-    return {
-        "domain":           "health",
-        "bmi":              bmi_data,
-        "fitness":          fitness_data,
-        "workout_plan":     workout_data,
-        "nutrition":        nutrition_data,
-        "sleep":            sleep_data,
-        "mental_health":    mental_data,
-        "screenings":       screening_data,
+    result = {
+        "domain":        "health",
+        "bmi":           bmi_data,
+        "fitness":       fitness_data,
+        "workout_plan":  workout_data,
+        "nutrition":     nutrition_data,
+        "sleep":         sleep_data,
+        "mental_health": mental_data,
+        "screenings":    screening_data,
         **llm_response
     }
+
+    result["explainability"] = build_explainability("health", result, request)
+
+    return result
