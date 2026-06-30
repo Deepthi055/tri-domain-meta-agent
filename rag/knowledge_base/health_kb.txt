@@ -1,0 +1,289 @@
+DOCUMENT: Healthy Lifestyle Guide
+SOURCE: TriDomain Health KB v1.0
+
+Good health depends on proper nutrition, regular exercise, quality sleep, stress management, and preventive healthcare.
+
+Healthy habits developed gradually are more sustainable than drastic lifestyle changes.
+
+---
+
+DOCUMENT: BMI Classification
+SOURCE: TriDomain Health KB v1.0
+
+Body Mass Index (BMI)
+
+BMI =
+Weight (kg) / Height² (m²)
+
+BMI Categories:
+
+Below 18.5
+Underweight
+
+18.5–24.9
+Healthy Weight
+
+25–29.9
+Overweight
+
+30+
+Obese
+
+BMI is only a screening tool and should not replace professional medical advice.
+
+---
+
+DOCUMENT: Exercise Recommendations
+SOURCE: TriDomain Health KB v1.0
+
+WHO recommends:
+
+150–300 minutes of moderate exercise weekly
+
+OR
+
+75–150 minutes of vigorous exercise weekly.
+
+Include:
+- Cardio
+- Strength Training
+- Flexibility
+- Balance exercises
+
+Exercise improves heart health, mental well-being, and weight management.
+
+---
+
+DOCUMENT: Nutrition Basics
+SOURCE: TriDomain Health KB v1.0
+
+A balanced diet includes:
+
+Complex carbohydrates
+
+Lean proteins
+
+Healthy fats
+
+Fruits
+
+Vegetables
+
+Whole grains
+
+Drink adequate water every day.
+
+Limit:
+Sugar
+Processed foods
+Trans fats
+Excess sodium
+
+---
+
+DOCUMENT: Sleep Health
+SOURCE: TriDomain Health KB v1.0
+
+Adults should sleep 7–9 hours daily.
+
+Good sleep improves:
+
+Memory
+
+Concentration
+
+Immunity
+
+Hormone regulation
+
+Mental health
+
+Poor sleep increases risks of obesity, diabetes, hypertension, and depression.
+
+---
+
+DOCUMENT: Mental Wellness
+SOURCE: TriDomain Health KB v1.0
+
+Mental health is equally important as physical health.
+
+Healthy practices:
+
+Meditation
+
+Deep breathing
+
+Exercise
+
+Social support
+
+Journaling
+
+Seeking professional help when necessary
+
+Persistent anxiety or depression should be evaluated by qualified healthcare professionals.
+
+---
+
+DOCUMENT: Stress Management
+SOURCE: TriDomain Health KB v1.0
+
+Stress can affect physical and emotional well-being.
+
+Stress reduction techniques:
+
+Regular exercise
+
+Time management
+
+Mindfulness
+
+Adequate sleep
+
+Healthy diet
+
+Hobbies
+
+Avoid chronic stress whenever possible.
+
+---
+
+DOCUMENT: Weight Management
+SOURCE: TriDomain Health KB v1.0
+
+Healthy weight loss should be gradual.
+
+Recommended:
+
+0.5–1 kg per week
+
+Avoid:
+
+Crash diets
+
+Extreme calorie restriction
+
+Unverified supplements
+
+Sustainable lifestyle changes are more effective.
+
+---
+
+DOCUMENT: Hydration Guide
+SOURCE: TriDomain Health KB v1.0
+
+Water is essential for:
+
+Digestion
+
+Temperature regulation
+
+Nutrient transport
+
+Kidney function
+
+Daily water requirements vary depending on age, climate, and activity level.
+
+---
+
+DOCUMENT: Preventive Healthcare
+SOURCE: TriDomain Health KB v1.0
+
+Preventive healthcare includes:
+
+Annual health checkups
+
+Vaccinations
+
+Dental care
+
+Eye examinations
+
+Blood pressure monitoring
+
+Blood sugar monitoring
+
+Early detection improves treatment outcomes.
+
+---
+
+DOCUMENT: Common Health Indicators
+SOURCE: TriDomain Health KB v1.0
+
+Healthy Resting Heart Rate:
+60–100 bpm
+
+Healthy Blood Pressure:
+Around 120/80 mmHg
+
+Normal Fasting Blood Sugar:
+70–99 mg/dL
+
+Consult healthcare professionals for proper interpretation.
+
+---
+
+DOCUMENT: Healthy Eating Habits
+SOURCE: TriDomain Health KB v1.0
+
+Healthy eating practices:
+
+Eat breakfast regularly.
+
+Consume vegetables daily.
+
+Reduce sugary beverages.
+
+Control portion sizes.
+
+Avoid excessive processed foods.
+
+Eat slowly.
+
+Practice mindful eating.
+
+---
+
+DOCUMENT: Healthy Habits Checklist
+SOURCE: TriDomain Health KB v1.0
+
+Daily healthy habits:
+
+✓ Walk regularly
+
+✓ Eat fruits and vegetables
+
+✓ Stay hydrated
+
+✓ Sleep adequately
+
+✓ Exercise
+
+✓ Manage stress
+
+✓ Avoid smoking
+
+✓ Limit alcohol
+
+✓ Maintain healthy relationships
+
+Consistency is more important than perfection.
+
+---
+
+DOCUMENT: Health Myths to Avoid
+SOURCE: TriDomain Health KB v1.0
+
+Common misconceptions:
+
+Skipping meals does not guarantee weight loss.
+
+Supplements cannot replace a balanced diet.
+
+Spot reduction of body fat is not scientifically supported.
+
+More exercise is not always better.
+
+Rapid weight loss is usually unsustainable.
+
+Health decisions should be based on scientific evidence and professional medical advice.

@@ -12,8 +12,8 @@ from sentence_transformers import SentenceTransformer
 
 # ── Config ────────────────────────────────────────────────────
 KB_DIR   = os.path.join(os.path.dirname(__file__), "knowledge_base")
-IDX_PATH = os.path.join(os.path.dirname(__file__), "career_index.faiss")
-META_PATH = os.path.join(os.path.dirname(__file__), "career_meta.pkl")
+IDX_PATH = os.path.join(os.path.dirname(__file__), "tridomain_index.faiss")
+META_PATH = os.path.join(os.path.dirname(__file__), "tridomain_meta.pkl")
 MODEL_NAME = "all-MiniLM-L6-v2"   # fast, small, good quality
 CHUNK_SIZE = 200                    # words per chunk
 OVERLAP    = 30                     # words overlap between chunks
@@ -51,10 +51,13 @@ def build_index():
         chunks = chunk_text(text)
         for i, chunk in enumerate(chunks):
             all_chunks.append(chunk)
+            domain = fname.replace("_kb.txt", "")
             all_meta.append({
                 "source": fname,
+                "domain": domain,
                 "chunk_id": i,
-                "text": chunk
+                "text": chunk,
+                "domain": domain    
             })
         print(f"[RAG] {fname} → {len(chunks)} chunks")
 

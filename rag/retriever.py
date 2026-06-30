@@ -9,8 +9,8 @@ import faiss
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-IDX_PATH  = os.path.join(os.path.dirname(__file__), "career_index.faiss")
-META_PATH = os.path.join(os.path.dirname(__file__), "career_meta.pkl")
+IDX_PATH  = os.path.join(os.path.dirname(__file__), "tridomain_index.faiss")
+META_PATH = os.path.join(os.path.dirname(__file__), "tridomain_meta.pkl")
 MODEL_NAME = "all-MiniLM-L6-v2"
 
 # ── Singleton — load once, reuse across requests ──────────────
@@ -32,7 +32,7 @@ def _load():
         with open(META_PATH, "rb") as f:
             _meta = pickle.load(f)
 
-def retrieve(query: str, top_k: int = 3) -> list[dict]:
+def retrieve(query: str, domain: str = None, top_k: int = 3) -> list[dict]:
     """
     Retrieve top_k most relevant chunks for a query.
     Returns list of dicts with text and source.
@@ -51,17 +51,21 @@ def retrieve(query: str, top_k: int = 3) -> list[dict]:
         if idx == -1:
             continue
         chunk = _meta[idx].copy()
+        if domain and chunk["domain"] != domain:
+            continue
         chunk["relevance_score"] = round(float(score), 3)
         results.append(chunk)
+        if len(results) >= top_k:
+            break
 
     return results
 
-def retrieve_as_context(query: str, top_k: int = 3) -> str:
+def retrieve_as_context(query: str,domain=None, top_k: int = 3) -> str:
     """
     Returns retrieved chunks formatted as a string
     ready to inject into an LLM prompt.
     """
-    chunks = retrieve(query, top_k)
+    chunks = retrieve(query,domain, top_k)
     if not chunks:
         return ""
 

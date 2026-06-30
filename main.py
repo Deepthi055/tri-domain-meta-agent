@@ -20,6 +20,23 @@ INDEX_FILE = BASE_DIR / "index.html"
 
 app = FastAPI(title="TriDomain Meta-Agent", version="0.6.0")
 
+from core.database import init_db
+from routes.auth import router as auth_router
+from routes.profile import router as profile_router
+from routes.memory import router as memory_router
+from routes.chat import router as chat_router
+from routes.reports import router as reports_router
+
+app.include_router(auth_router)
+app.include_router(profile_router)
+app.include_router(memory_router)
+app.include_router(chat_router)
+app.include_router(reports_router)
+
+@app.on_event("startup")
+def startup():
+    init_db()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
