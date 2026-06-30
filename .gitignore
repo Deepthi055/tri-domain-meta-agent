@@ -4,3 +4,5 @@ __pycache__/
 test_groq.py
 rag/career_index.faiss
 rag/career_meta.pkl
+venv/
+.venv/

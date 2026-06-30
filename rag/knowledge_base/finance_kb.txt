@@ -1,0 +1,255 @@
+DOCUMENT: Personal Finance Fundamentals
+SOURCE: TriDomain Finance KB v1.0
+
+Financial stability begins with understanding income, expenses, savings, and investments.
+The recommended budgeting rule is the 50-30-20 rule:
+- 50% for essential needs (rent, groceries, utilities)
+- 30% for personal wants (entertainment, travel)
+- 20% for savings and investments
+
+Track expenses every month to identify unnecessary spending.
+Maintaining financial discipline is more important than earning a high salary.
+
+---
+
+DOCUMENT: Emergency Fund Guide
+SOURCE: TriDomain Finance KB v1.0
+
+An emergency fund protects against unexpected financial situations.
+
+Recommended emergency fund:
+- Students: 3 months of expenses
+- Salaried employees: 6 months of expenses
+- Freelancers or business owners: 9–12 months of expenses
+
+Emergency funds should be kept in highly liquid accounts such as savings accounts or liquid mutual funds.
+
+Never invest your emergency fund in high-risk assets.
+
+---
+
+DOCUMENT: Saving Strategies
+SOURCE: TriDomain Finance KB v1.0
+
+Effective saving habits include:
+1. Pay yourself first before spending.
+2. Automate monthly savings.
+3. Avoid impulse purchases.
+4. Track recurring subscriptions.
+5. Increase savings whenever income increases.
+
+Saving consistently is more effective than saving irregular large amounts.
+
+---
+
+DOCUMENT: Investment Basics
+SOURCE: TriDomain Finance KB v1.0
+
+Investing helps money grow over time.
+
+Common investment options in India include:
+
+- Fixed Deposits (FD)
+- Recurring Deposits (RD)
+- Public Provident Fund (PPF)
+- Employee Provident Fund (EPF)
+- National Pension System (NPS)
+- Mutual Funds
+- Stocks
+- Exchange Traded Funds (ETF)
+- Gold
+- Sovereign Gold Bonds
+- Real Estate
+
+Diversification reduces investment risk.
+
+---
+
+DOCUMENT: Risk Appetite Framework
+SOURCE: TriDomain Finance KB v1.0
+
+Investment risk depends on age, income stability, financial goals, and investment experience.
+
+Low Risk:
+- Fixed Deposit
+- PPF
+- Government Bonds
+
+Medium Risk:
+- Hybrid Mutual Funds
+- Index Funds
+- ETFs
+
+High Risk:
+- Individual Stocks
+- Sector Funds
+- Cryptocurrency
+
+Invest only according to your financial goals and risk tolerance.
+
+---
+
+DOCUMENT: Mutual Funds Guide
+SOURCE: TriDomain Finance KB v1.0
+
+Mutual funds pool money from multiple investors.
+
+Types:
+- Equity Mutual Funds
+- Debt Mutual Funds
+- Hybrid Mutual Funds
+- Index Funds
+- ELSS Funds
+
+SIP (Systematic Investment Plan) allows regular monthly investing.
+
+Long-term SIP investing benefits from rupee-cost averaging and compounding.
+
+---
+
+DOCUMENT: Stock Market Basics
+SOURCE: TriDomain Finance KB v1.0
+
+Stocks represent ownership in a company.
+
+Before investing:
+- Study company fundamentals.
+- Understand market capitalization.
+- Analyze revenue growth.
+- Check profitability.
+- Review debt levels.
+- Evaluate management quality.
+
+Long-term investing generally reduces short-term market volatility.
+
+---
+
+DOCUMENT: Financial Ratios
+SOURCE: TriDomain Finance KB v1.0
+
+Important personal finance ratios:
+
+Savings Rate =
+Monthly Savings / Monthly Income × 100
+
+Expense Ratio =
+Monthly Expenses / Monthly Income × 100
+
+Debt-to-Income Ratio =
+Monthly EMI / Monthly Income × 100
+
+Recommended values:
+Savings Rate >20%
+Expense Ratio <80%
+Debt-to-Income <35%
+
+---
+
+DOCUMENT: Goal-Based Financial Planning
+SOURCE: TriDomain Finance KB v1.0
+
+Financial goals should be categorized as:
+
+Short-term:
+- Emergency fund
+- Vacation
+- Laptop purchase
+
+Medium-term:
+- Car
+- Higher education
+- Wedding
+
+Long-term:
+- Retirement
+- House
+- Financial independence
+
+Assign target amount and timeline to every financial goal.
+
+---
+
+DOCUMENT: Retirement Planning
+SOURCE: TriDomain Finance KB v1.0
+
+Retirement planning should begin as early as possible.
+
+Benefits:
+- Longer compounding period
+- Lower monthly investment required
+- Greater wealth accumulation
+
+PPF, NPS, Mutual Funds, and EPF are common retirement planning tools in India.
+
+---
+
+DOCUMENT: Credit Score Guide
+SOURCE: TriDomain Finance KB v1.0
+
+Credit score influences loan approval.
+
+Excellent:
+750+
+
+Good:
+700–749
+
+Average:
+650–699
+
+Poor:
+Below 650
+
+Improve credit score by:
+- Paying EMIs on time
+- Maintaining low credit utilization
+- Avoiding multiple loan applications
+
+---
+
+DOCUMENT: Financial Mistakes to Avoid
+SOURCE: TriDomain Finance KB v1.0
+
+Common financial mistakes:
+
+- Spending more than income
+- Ignoring emergency funds
+- Investing without research
+- High credit card debt
+- Depending on one income source
+- Delaying investments
+- Chasing quick-rich schemes
+- Ignoring insurance
+
+Financial planning is a long-term process.
+
+---
+
+DOCUMENT: Insurance Basics
+SOURCE: TriDomain Finance KB v1.0
+
+Important insurance types:
+
+Health Insurance
+Life Insurance
+Term Insurance
+Vehicle Insurance
+Home Insurance
+
+Insurance protects against financial loss.
+
+Term insurance is generally recommended for earning members with dependents.
+
+---
+
+DOCUMENT: Financial Wellness Tips
+SOURCE: TriDomain Finance KB v1.0
+
+Healthy financial habits include:
+- Reviewing finances monthly
+- Increasing investments annually
+- Learning about personal finance
+- Avoiding emotional investing
+- Maintaining financial discipline
+- Setting realistic goals
+- Diversifying investments
