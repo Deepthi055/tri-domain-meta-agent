@@ -1,0 +1,20 @@
+[
+  {
+    "domain": "career",
+    "original_ms": 8773,
+    "langchain_ms": 1442,
+    "speedup": 6.1
+  },
+  {
+    "domain": "health",
+    "original_ms": 1249,
+    "langchain_ms": 1700,
+    "speedup": 0.7
+  },
+  {
+    "domain": "finance",
+    "original_ms": 1425,
+    "langchain_ms": 2545,
+    "speedup": 0.6
+  }
+]
