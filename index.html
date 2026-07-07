@@ -1271,6 +1271,21 @@
 
         const root = ReactDOM.createRoot(document.getElementById("root"));
         root.render(<Dashboard />);
+        // ── RAG SOURCES ───────────────────────────────────────
+                if (r.sources && r.sources.length > 0) {
+                    html += `<div class="section-block">
+                        <div class="section-title">📚 Knowledge Base Sources Used</div>`;
+
+                    r.sources.forEach((src, i) => {
+                        html += `<div class="job-card">
+                            <div class="job-title">
+                                Source ${i + 1}: ${src}
+                            </div>
+                        </div>`;
+                    });
+
+                    html += `</div>`;
+                }
     </script>
 </body>
 </html>

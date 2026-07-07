@@ -75,7 +75,12 @@ from tools.finance_tools import (
     retirement_planner,
     tax_optimizer,
 )
-
+# ── RAG import (safe — won't crash if index not built yet) ────
+try:
+    from rag.finance_retriever import retrieve_as_context
+    RAG_AVAILABLE = True
+except Exception:
+    RAG_AVAILABLE = False
 # ─────────────────────────────────────────────────────────────────────────────
 # System prompt
 # ─────────────────────────────────────────────────────────────────────────────
@@ -294,6 +299,13 @@ def run(request: Any) -> dict[str, Any]:
             )
 
     tool_context = "\n".join(tool_summary_lines)
+# ── RAG: Retrieve relevant context ────────────────────────
+    rag_context = ""
+    if RAG_AVAILABLE:
+        try:
+            rag_context = retrieve_as_context(query, top_k=3)
+        except Exception as e:
+            print(f"[RAG-Finance] Retrieval failed: {e}")
 
     user_message = f"""User profile:
 - Name:  {getattr(request, 'name', 'User')}
@@ -302,6 +314,7 @@ def run(request: Any) -> dict[str, Any]:
 
 Calculated financial metrics:
 {tool_context}
+{rag_context}
 
 Based on these specific numbers, provide tailored financial advice."""
 
