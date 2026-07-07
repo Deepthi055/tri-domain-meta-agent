@@ -8,7 +8,7 @@ chat request to personalize responses (see services/context_builder.py).
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, ARRAY
+from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey, JSON
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -45,7 +45,7 @@ class CareerProfile(Base):
     user_id = Column(
         UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, unique=True, index=True
     )
-    current_skills = Column(ARRAY(String), nullable=True, default=list)
+    current_skills = Column(JSON, nullable=True, default=list)
     target_role = Column(String(120), nullable=True)
     experience_level = Column(String(50), nullable=True)  # junior/mid/senior
     career_goal = Column(String(255), nullable=True)
