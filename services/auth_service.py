@@ -25,7 +25,11 @@ def register_user(db: Session, user_in: UserCreate) -> User:
 
 
 def authenticate_user(db: Session, email: str, password: str) -> User:
-    user = db.query(User).filter(User.email == email).first()
+    user = (
+        db.query(User)
+        .filter((User.email == email) | (User.name == email))
+        .first()
+    )
     if not user or not verify_password(password, user.password_hash):
         raise ValueError("Invalid email or password")
     return user
