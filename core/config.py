@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     FAISS_INDEX_PATH: str = ".rag/index_store/faiss.index"
     FAISS_DOCS_PATH: str = ".rag/index_store/docs.json"
+    HF_TOKEN: str = ""
 
     # ── Reports ─────────────────────────────────────────────────
     REPORTS_DIR: str = "./reports"
