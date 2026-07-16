@@ -36,6 +36,19 @@ export const authService = {
     return res.data
   },
 
+  async uploadAvatar(avatarUrl: string): Promise<User> {
+    const res = await api.post<User>('/auth/avatar', { avatar_url: avatarUrl })
+    return res.data
+  },
+
+  async setTwoFactorEnabled(enabled: boolean, current_password?: string): Promise<User> {
+    const res = await api.post<User>('/auth/two-factor', {
+      enabled,
+      current_password,
+    })
+    return res.data
+  },
+
   saveToken(token: Token): void {
     localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token.access_token)
   },

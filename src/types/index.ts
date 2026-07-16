@@ -4,6 +4,7 @@ export interface User {
   email: string
   created_at: string
   avatar_url?: string
+  two_factor_enabled?: boolean
 }
 
 export interface Token {

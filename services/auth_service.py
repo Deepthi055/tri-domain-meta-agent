@@ -54,5 +54,31 @@ def change_password(db: Session, user_id: str, current_password: str, new_passwo
     db.commit()
 
 
+def set_user_avatar(db: Session, user_id: str, avatar_url: str) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("User not found")
+    user.avatar_url = avatar_url
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def set_two_factor_enabled(db: Session, user_id: str, enabled: bool, current_password: str | None = None) -> User:
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise ValueError("User not found")
+    if enabled and not current_password:
+        raise ValueError("Current password is required to enable two-factor authentication")
+    if enabled and not verify_password(current_password, user.password_hash):
+        raise ValueError("Current password is incorrect")
+    user.two_factor_enabled = enabled
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def issue_token_for_user(user: User) -> str:
     return create_access_token(data={"sub": user.id, "email": user.email})

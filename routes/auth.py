@@ -16,6 +16,8 @@ from schemas.auth import (
     Token,
     ForgotPasswordRequest,
     ChangePasswordRequest,
+    AvatarUploadRequest,
+    TwoFactorRequest,
 )
 from services.auth_service import (
     register_user,
@@ -23,6 +25,8 @@ from services.auth_service import (
     issue_token_for_user,
     request_password_reset,
     change_password,
+    set_user_avatar,
+    set_two_factor_enabled,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -69,6 +73,37 @@ def change_password_route(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"message": "Password changed successfully"}
+
+
+@router.post("/avatar", response_model=UserOut)
+def upload_avatar(
+    payload: AvatarUploadRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        user = set_user_avatar(db, current_user.id, payload.avatar_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return user
+
+
+@router.post("/two-factor", response_model=UserOut)
+def update_two_factor(
+    payload: TwoFactorRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        user = set_two_factor_enabled(
+            db,
+            current_user.id,
+            payload.enabled,
+            payload.current_password,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return user
 
 
 @router.get("/me", response_model=UserOut)
