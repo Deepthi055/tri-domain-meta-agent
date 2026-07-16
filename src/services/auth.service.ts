@@ -85,16 +85,4 @@ export const authService = {
   isAuthenticated(): boolean {
     return !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
   },
-
-  saveAvatar(avatarUrl: string): void {
-    localStorage.setItem(STORAGE_KEYS.AVATAR_URL, avatarUrl)
-  },
-
-  getAvatar(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.AVATAR_URL)
-  },
-
-  clearAvatar(): void {
-    localStorage.removeItem(STORAGE_KEYS.AVATAR_URL)
-  },
 }

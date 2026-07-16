@@ -125,7 +125,6 @@ export function ProfilePage() {
         const updatedUser = await authService.uploadAvatar(url)
         authService.saveUser(updatedUser)
         setUser(updatedUser)
-        setAvatarUrl(updatedUser.avatar_url || null)
         toast.success(t('avatarUploaded'))
       } catch (err) {
         toast.error(getErrorMessage(err))
@@ -139,7 +138,6 @@ export function ProfilePage() {
       const updatedUser = await authService.uploadAvatar('')
       authService.saveUser(updatedUser)
       setUser(updatedUser)
-      setAvatarUrl(null)
       toast.success(t('avatarDeleted'))
     } catch (err) {
       toast.error(getErrorMessage(err))
