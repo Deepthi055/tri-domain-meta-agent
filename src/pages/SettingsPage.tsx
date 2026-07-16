@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Bell, Globe, Key, Moon, Palette, Shield, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 import { useApiStatus } from '@/hooks'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -15,6 +16,7 @@ import { Separator } from '@/components/ui/separator'
 
 export function SettingsPage() {
   const { theme, setTheme, resolvedTheme } = useTheme()
+  const { language, setLanguage, t } = useLanguage()
   const { data: apiStatus } = useApiStatus()
   const [notifications, setNotifications] = useState({
     email: true,
@@ -22,8 +24,22 @@ export function SettingsPage() {
     reports: true,
     insights: true,
   })
-  const [language, setLanguage] = useState('en')
   const [apiUrl, setApiUrl] = useState(import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000')
+
+  useEffect(() => {
+    const stored = localStorage.getItem('tridomain_notifications')
+    if (stored) {
+      try {
+        setNotifications(JSON.parse(stored))
+      } catch {
+        setNotifications({ email: true, push: false, reports: true, insights: true })
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    localStorage.setItem('tridomain_notifications', JSON.stringify(notifications))
+  }, [notifications])
 
   const handleSaveApi = () => {
     toast.success('API settings saved (requires restart)')
