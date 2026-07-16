@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2, UserPlus } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 import { getErrorMessage } from '@/services'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +31,7 @@ type FormData = z.infer<typeof schema>
 
 export function RegisterPage() {
   const { register: registerUser } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -42,8 +44,8 @@ export function RegisterPage() {
     setLoading(true)
     try {
       await registerUser(data.name, data.email, data.password)
-      toast.success('Account created successfully!')
-      navigate(ROUTES.DASHBOARD)
+      toast.success(t('accountCreated'))
+      navigate(ROUTES.LOGIN)
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
@@ -58,8 +60,8 @@ export function RegisterPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 lg:hidden">
             <UserPlus className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl">Create account</CardTitle>
-          <CardDescription>Start your multi-domain AI advisory journey</CardDescription>
+          <CardTitle className="text-2xl">{t('createAccount')}</CardTitle>
+          <CardDescription>{t('createAccount')} for multi-domain AI advisory</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -111,14 +113,14 @@ export function RegisterPage() {
             </div>
 
             <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create account'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('createAccount')}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{' '}
             <Link to={ROUTES.LOGIN} className="text-primary font-medium hover:underline">
-              Sign in
+              {t('signIn')}
             </Link>
           </p>
         </CardContent>

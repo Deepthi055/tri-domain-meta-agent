@@ -7,6 +7,7 @@ import { motion } from 'framer-motion'
 import { Eye, EyeOff, Loader2, LogIn } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
+import { useLanguage } from '@/contexts/LanguageContext'
 import { getErrorMessage } from '@/services'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -23,6 +24,7 @@ type FormData = z.infer<typeof schema>
 
 export function LoginPage() {
   const { login } = useAuth()
+  const { t } = useLanguage()
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -35,7 +37,7 @@ export function LoginPage() {
     setLoading(true)
     try {
       await login(data.email, data.password)
-      toast.success('Welcome back!')
+      toast.success(t('welcome'))
       navigate(ROUTES.DASHBOARD)
     } catch (err) {
       toast.error(getErrorMessage(err))
@@ -51,8 +53,8 @@ export function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 lg:hidden">
             <LogIn className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl">Welcome back</CardTitle>
-          <CardDescription>Sign in to your TriDomain Meta-Agent account</CardDescription>
+          <CardTitle className="text-2xl">{t('welcome')}</CardTitle>
+          <CardDescription>{t('signIn')} to your TriDomain Meta-Agent account</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -90,14 +92,14 @@ export function LoginPage() {
             </div>
 
             <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign in'}
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('signIn')}
             </Button>
           </form>
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Don&apos;t have an account?{' '}
             <Link to={ROUTES.REGISTER} className="text-primary font-medium hover:underline">
-              Create account
+              {t('createAccount')}
             </Link>
           </p>
         </CardContent>

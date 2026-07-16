@@ -6,6 +6,8 @@ import { z } from 'zod'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Loader2, Mail } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/contexts/LanguageContext'
+import { authService, getErrorMessage } from '@/services'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,6 +21,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export function ForgotPasswordPage() {
+  const { t } = useLanguage()
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
 
@@ -26,12 +29,17 @@ export function ForgotPasswordPage() {
     resolver: zodResolver(schema),
   })
 
-  const onSubmit = async (_data: FormData) => {
+  const onSubmit = async (data: FormData) => {
     setLoading(true)
-    await new Promise((r) => setTimeout(r, 1500))
-    setSent(true)
-    toast.success('Reset link sent to your email')
-    setLoading(false)
+    try {
+      await authService.forgotPassword(data.email)
+      setSent(true)
+      toast.success(t('requestSent'))
+    } catch (err) {
+      toast.error(getErrorMessage(err))
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -41,11 +49,11 @@ export function ForgotPasswordPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500">
             <Mail className="h-6 w-6 text-white" />
           </div>
-          <CardTitle className="text-2xl">Reset password</CardTitle>
+          <CardTitle className="text-2xl">{t('resetPassword')}</CardTitle>
           <CardDescription>
             {sent
-              ? 'Check your inbox for a password reset link'
-              : 'Enter your email and we\'ll send you a reset link'}
+              ? t('requestSent')
+              : `${t('forgotPassword')} ${t('sendResetLink')}`}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -57,7 +65,7 @@ export function ForgotPasswordPage() {
                 {errors.email && <p className="text-xs text-destructive">{errors.email.message}</p>}
               </div>
               <Button type="submit" variant="gradient" className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Send reset link'}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('sendResetLink')}
               </Button>
             </form>
           ) : (
