@@ -24,11 +24,15 @@ import { StatCard } from '@/components/common/StatCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { mockCareerData } from '@/utils/mockData'
+import { useMemo } from 'react'
+import { useProfile } from '@/hooks'
 import { formatCurrency } from '@/utils'
+import { buildCareerPageData } from '@/utils/profileInsights'
 
 export function CareerPage() {
-  const { skills, roadmap, salaryPrediction, certifications, jobRecommendations, progressData } = mockCareerData
+  const { data: profile } = useProfile()
+  const careerData = useMemo(() => buildCareerPageData(profile), [profile])
+  const { skills, roadmap, salaryPrediction, certifications, jobRecommendations, progressData } = careerData
 
   return (
     <div className="space-y-8">
@@ -41,7 +45,7 @@ export function CareerPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Career Score"
-          value={78}
+          value={Math.max(60, Math.round((profile?.career?.current_skills?.length || 0) * 10 + 50))}
           subtitle="Overall readiness"
           icon={Target}
           trend={{ value: 8, label: 'this quarter' }}
@@ -56,14 +60,14 @@ export function CareerPage() {
         />
         <MetricCard
           title="Predicted Salary"
-          value={formatCurrency(salaryPrediction.predicted)}
+          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Set profile' }
           subtitle={`In ${salaryPrediction.timeframe}`}
           icon={DollarSign}
           gradient="from-amber-500 to-orange-500"
         />
         <MetricCard
           title="Job Matches"
-          value={jobRecommendations.length}
+          value={Math.max(jobRecommendations.length, 0)}
           subtitle="High compatibility"
           icon={Briefcase}
           gradient="from-purple-500 to-pink-500"

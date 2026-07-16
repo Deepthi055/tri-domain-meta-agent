@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # ── Reports ─────────────────────────────────────────────────
     REPORTS_DIR: str = "./reports"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow")
 
 
 settings = Settings()

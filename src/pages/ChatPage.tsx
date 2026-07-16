@@ -18,7 +18,6 @@ import { Label } from '@/components/ui/label'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Card, CardContent } from '@/components/ui/card'
 import { SUGGESTED_PROMPTS } from '@/utils/constants'
-import { mockConversations } from '@/utils/mockData'
 import type { ChatResponse, QueryRequest, QueryResponse } from '@/types'
 
 interface LocalMessage {
@@ -57,7 +56,7 @@ export function ChatPage() {
   const queryMutation = useQueryMutation()
   const langchainQuery = useLangchainQuery()
 
-  const conversations = history?.length ? history : mockConversations
+  const conversations = history ?? []
 
   useEffect(() => {
     const state = location.state as { query?: string; conversationId?: string } | null

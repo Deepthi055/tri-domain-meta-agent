@@ -125,4 +125,7 @@ def update_current_user(
 
 @router.get("/me", response_model=UserOut)
 def me(current_user: User = Depends(get_current_user)):
+    # Ensure boolean fields are non-null for response validation (legacy DB rows)
+    if getattr(current_user, "two_factor_enabled", None) is None:
+        current_user.two_factor_enabled = False
     return current_user

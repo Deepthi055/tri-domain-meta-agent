@@ -18,8 +18,6 @@ import {
 } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { mockReports } from '@/utils/mockData'
-
 export function ReportsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [domain, setDomain] = useState('career')
@@ -28,7 +26,7 @@ export function ReportsPage() {
   const { data: apiReports, isLoading } = useReports()
   const createReport = useCreateReport()
 
-  const reports = apiReports?.length ? apiReports : mockReports
+  const reports = apiReports ?? []
 
   const handleGenerate = async () => {
     setGenerating('new')

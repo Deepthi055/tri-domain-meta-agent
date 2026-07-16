@@ -22,7 +22,7 @@ class UserOut(BaseModel):
     email: EmailStr
     created_at: datetime
     avatar_url: str | None = None
-    two_factor_enabled: bool = False
+    two_factor_enabled: bool | None = False
 
     class Config:
         from_attributes = True

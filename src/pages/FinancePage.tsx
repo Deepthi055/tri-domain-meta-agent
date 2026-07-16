@@ -25,10 +25,14 @@ import { ChartCard } from '@/components/common/ChartCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { mockFinanceData } from '@/utils/mockData'
+import { useMemo } from 'react'
+import { useProfile } from '@/hooks'
 import { formatCurrency, formatPercent } from '@/utils'
+import { buildFinancePageData } from '@/utils/profileInsights'
 
 export function FinancePage() {
+  const { data: profile } = useProfile()
+  const financeData = useMemo(() => buildFinancePageData(profile), [profile])
   const {
     monthlyIncome,
     monthlyExpenses,
@@ -39,7 +43,7 @@ export function FinancePage() {
     riskProfile,
     portfolio,
     investments,
-  } = mockFinanceData
+  } = financeData
 
   return (
     <div className="space-y-8">
@@ -52,7 +56,7 @@ export function FinancePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Finance Score"
-          value={72}
+          value={Math.max(55, Math.round(savingsRate + 50))}
           subtitle="Financial health"
           icon={TrendingUp}
           trend={{ value: 4.1, label: 'this quarter' }}

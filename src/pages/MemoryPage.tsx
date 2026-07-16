@@ -24,7 +24,6 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent } from '@/components/ui/card'
 import { useDebounce } from '@/hooks'
-import { mockMemories } from '@/utils/mockData'
 import { formatRelativeDate } from '@/utils'
 import type { Memory } from '@/types'
 
@@ -46,7 +45,7 @@ export function MemoryPage() {
   const { data: apiMemories, isLoading } = useMemories(categoryFilter === 'all' ? undefined : categoryFilter)
   const createMemory = useCreateMemory()
 
-  const memories = apiMemories?.length ? apiMemories : [...mockMemories, ...localMemories]
+  const memories = [...(apiMemories ?? []), ...localMemories]
 
   const filtered = memories.filter((m) => {
     const matchesSearch = m.memory_text.toLowerCase().includes(debouncedSearch.toLowerCase())

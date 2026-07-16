@@ -19,25 +19,36 @@ class GeneralProfileIn(BaseModel):
 
 
 class CareerProfileIn(BaseModel):
+    education: Optional[str] = None
     current_skills: Optional[List[str]] = None
     target_role: Optional[str] = None
     experience_level: Optional[str] = None
     career_goal: Optional[str] = None
+    preferred_roles: Optional[str] = None
+    resume: Optional[str] = None
 
 
 class HealthProfileIn(BaseModel):
+    medical_conditions: Optional[str] = None
+    lifestyle: Optional[str] = None
     fitness_goal: Optional[str] = None
     sleep_hours: Optional[float] = None
     sleep_quality: Optional[int] = None
     diet_preference: Optional[str] = None
+    workout: Optional[str] = None
+    health_goals: Optional[str] = None
+    water_intake: Optional[float] = None
 
 
 class FinanceProfileIn(BaseModel):
     monthly_income: Optional[float] = None
     monthly_expenses: Optional[float] = None
     savings_goal: Optional[float] = None
+    investments: Optional[str] = None
     risk_appetite: Optional[str] = None
     investment_experience: Optional[str] = None
+    financial_goals: Optional[str] = None
+    budget: Optional[str] = None
 
 
 class FullProfileIn(BaseModel):

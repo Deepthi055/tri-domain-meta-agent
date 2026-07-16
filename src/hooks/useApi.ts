@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   authService,
   chatService,
@@ -26,6 +26,18 @@ export const queryKeys = {
   apiStatus: ['apiStatus'] as const,
 }
 
+export function invalidateProfileDependentQueries(qc: QueryClient) {
+  return Promise.all([
+    qc.invalidateQueries({ queryKey: queryKeys.profile }),
+    qc.invalidateQueries({
+      predicate: (query) => {
+        const [key] = query.queryKey as [string?]
+        return key === 'chatHistory' || key === 'reports' || key === 'memories' || key === 'domains'
+      },
+    }),
+  ])
+}
+
 export function useProfile() {
   return useQuery({
     queryKey: queryKeys.profile,
@@ -38,7 +50,10 @@ export function useUpdateProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: FullProfile) => profileService.update(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.profile }),
+    onSuccess: async (data) => {
+      qc.setQueryData(queryKeys.profile, data)
+      await invalidateProfileDependentQueries(qc)
+    },
   })
 }
 
@@ -46,7 +61,10 @@ export function useCreateProfile() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: FullProfile) => profileService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.profile }),
+    onSuccess: async (data) => {
+      qc.setQueryData(queryKeys.profile, data)
+      await invalidateProfileDependentQueries(qc)
+    },
   })
 }
 

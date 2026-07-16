@@ -11,7 +11,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDebounce } from '@/hooks'
 import { ROUTES } from '@/utils/constants'
-import { mockConversations } from '@/utils/mockData'
 import type { ConversationSummary } from '@/types'
 
 export function HistoryPage() {
@@ -22,7 +21,7 @@ export function HistoryPage() {
   const debouncedSearch = useDebounce(search, 300)
 
   const { data: apiHistory, isLoading } = useChatHistory()
-  const conversations = (apiHistory?.length ? apiHistory : mockConversations).filter(
+  const conversations = (apiHistory ?? []).filter(
     (c) => !deletedIds.has(c.id)
   )
 

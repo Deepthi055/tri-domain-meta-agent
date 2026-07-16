@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bell, Globe, Key, Moon, Palette, Shield, Sun } from 'lucide-react'
+import { Bell, Globe, Moon, Palette, Shield, Sun } from 'lucide-react'
 import { toast } from 'sonner'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useLanguage } from '@/contexts/LanguageContext'

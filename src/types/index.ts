@@ -37,18 +37,26 @@ export interface GeneralProfile {
 }
 
 export interface CareerProfile {
+  education?: string
   current_skills?: string[]
   target_role?: string
   experience_level?: string
   career_goal?: string
+  preferred_roles?: string
+  resume?: string
   updated_at?: string
 }
 
 export interface HealthProfile {
+  medical_conditions?: string
+  lifestyle?: string
   fitness_goal?: string
   sleep_hours?: number
   sleep_quality?: number
   diet_preference?: string
+  workout?: string
+  health_goals?: string
+  water_intake?: number
   updated_at?: string
 }
 
@@ -56,8 +64,11 @@ export interface FinanceProfile {
   monthly_income?: number
   monthly_expenses?: number
   savings_goal?: number
+  investments?: string
   risk_appetite?: string
   investment_experience?: string
+  financial_goals?: string
+  budget?: string
   updated_at?: string
 }
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
@@ -23,7 +23,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
-import { useChatHistory, useMemories, useReports } from '@/hooks'
+import { useChatHistory, useMemories, useProfile, useReports } from '@/hooks'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
 import { DomainCard } from '@/components/common/DomainCard'
@@ -36,31 +36,41 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/utils/constants'
-import { mockDomainScores, mockActivities, mockConversations, mockMemories, mockReports } from '@/utils/mockData'
 import { activityIcons, domainIcons } from '@/utils/navigation'
 import { formatRelativeDate } from '@/utils'
-
-const chartData = [
-  { month: 'Jan', career: 65, health: 72, finance: 58 },
-  { month: 'Feb', career: 68, health: 75, finance: 62 },
-  { month: 'Mar', career: 72, health: 78, finance: 65 },
-  { month: 'Apr', career: 74, health: 80, finance: 68 },
-  { month: 'May', career: 76, health: 82, finance: 70 },
-  { month: 'Jun', career: 78, health: 85, finance: 72 },
-]
+import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights, buildDashboardTrendValues } from '@/utils/profileInsights'
 
 export function DashboardPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
 
+  const { data: profile } = useProfile()
   const { data: conversations } = useChatHistory()
   const { data: memories } = useMemories()
   const { data: reports } = useReports()
 
-  const recentConversations = conversations?.length ? conversations.slice(0, 3) : mockConversations
-  const recentMemories = memories?.length ? memories.slice(0, 2) : mockMemories.slice(0, 2)
-  const latestReports = reports?.length ? reports.slice(0, 1) : mockReports.slice(0, 1)
+  const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
+  const dashboardInsights = useMemo(() => buildDashboardInsights(profile), [profile])
+  const trendValues = useMemo(() => buildDashboardTrendValues(profile), [profile])
+  const recentConversations = conversations?.slice(0, 3) ?? []
+  const recentMemories = memories?.slice(0, 2) ?? []
+  const latestReports = reports?.slice(0, 1) ?? []
+  const recentActivities = useMemo(() => buildDashboardActivity(profile, conversations, memories, reports), [profile, conversations, memories, reports])
+  const chartData = useMemo(() => {
+    const baseCareer = Math.max(50, Math.min(95, domainScores.career))
+    const baseHealth = Math.max(50, Math.min(95, domainScores.health))
+    const baseFinance = Math.max(50, Math.min(95, domainScores.finance))
+
+    return [
+      { month: 'Jan', career: Math.max(45, baseCareer - 12), health: Math.max(45, baseHealth - 10), finance: Math.max(45, baseFinance - 12) },
+      { month: 'Feb', career: Math.max(48, baseCareer - 8), health: Math.max(48, baseHealth - 6), finance: Math.max(48, baseFinance - 8) },
+      { month: 'Mar', career: Math.max(52, baseCareer - 4), health: Math.max(52, baseHealth - 3), finance: Math.max(52, baseFinance - 4) },
+      { month: 'Apr', career: Math.max(56, baseCareer), health: Math.max(56, baseHealth), finance: Math.max(56, baseFinance) },
+      { month: 'May', career: Math.max(60, baseCareer + 3), health: Math.max(60, baseHealth + 3), finance: Math.max(60, baseFinance + 3) },
+      { month: 'Jun', career: baseCareer, health: baseHealth, finance: baseFinance },
+    ]
+  }, [domainScores])
 
   const handleQuickSearch = () => {
     if (searchQuery.trim()) {
@@ -117,10 +127,10 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Overall Score"
-          value={mockDomainScores.overall}
+          value={domainScores.overall}
           subtitle="Across all domains"
           icon={TrendingUp}
-          trend={{ value: 5.2, label: 'this month' }}
+          trend={{ value: trendValues.overall, label: 'profile completion' }}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard
@@ -132,14 +142,14 @@ export function DashboardPage() {
         />
         <MetricCard
           title="Memories"
-          value={memories?.length || mockMemories.length}
+          value={memories?.length ?? 0}
           subtitle="Saved insights"
           icon={Brain}
           gradient="from-purple-500 to-pink-500"
         />
         <MetricCard
           title="Reports"
-          value={reports?.length || mockReports.length}
+          value={reports?.length ?? 0}
           subtitle="Generated"
           icon={FileText}
           gradient="from-amber-500 to-orange-500"
@@ -158,28 +168,28 @@ export function DashboardPage() {
             domain="career"
             title="Career"
             description="Skills, roadmaps, and job recommendations"
-            score={mockDomainScores.career}
+            score={domainScores.career}
             icon={Briefcase}
             href={ROUTES.CAREER}
-            insight="Strong Python skills, focus on ML deployment next"
+            insight={dashboardInsights.career}
           />
           <DomainCard
             domain="health"
             title="Health"
             description="Fitness, nutrition, and wellness tracking"
-            score={mockDomainScores.health}
+            score={domainScores.health}
             icon={Heart}
             href={ROUTES.HEALTH}
-            insight="Sleep quality improving, maintain workout consistency"
+            insight={dashboardInsights.health}
           />
           <DomainCard
             domain="finance"
             title="Finance"
             description="Budget, savings, and investment guidance"
-            score={mockDomainScores.finance}
+            score={domainScores.finance}
             icon={Wallet}
             href={ROUTES.FINANCE}
-            insight="38% savings rate — consider increasing equity allocation"
+            insight={dashboardInsights.finance}
           />
         </div>
       </div>
@@ -226,7 +236,7 @@ export function DashboardPage() {
               Recent Activity
             </h3>
             <div className="space-y-4">
-              {mockActivities.map((activity) => {
+              {recentActivities.map((activity) => {
                 const Icon = activityIcons[activity.type as keyof typeof activityIcons] || activityIcons.default
                 const DomainIcon = domainIcons[activity.domain as keyof typeof domainIcons]
                 return (

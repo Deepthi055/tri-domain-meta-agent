@@ -25,12 +25,15 @@ import { ChartCard } from '@/components/common/ChartCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
-import { mockHealthData } from '@/utils/mockData'
+import { useMemo } from 'react'
+import { useProfile } from '@/hooks'
+import { buildHealthPageData } from '@/utils/profileInsights'
 
 export function HealthPage() {
-  const { bmi, sleep, stress, calories, water, weeklyActivity, dietSuggestions, workoutSuggestions } = mockHealthData
+  const { data: profile } = useProfile()
+  const healthData = useMemo(() => buildHealthPageData(profile), [profile])
+  const { bmi, bmiStatus, sleep, stress, calories, water, weeklyActivity, dietSuggestions, workoutSuggestions } = healthData
 
-  const bmiStatus = bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'
   const bmiColor = bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
 
   return (
@@ -44,7 +47,7 @@ export function HealthPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Health Score"
-          value={85}
+          value={Math.max(60, Math.round((profile?.health?.sleep_hours || 0) * 8 + (profile?.health?.sleep_quality || 0) * 3 + 40))}
           subtitle="Overall wellness"
           icon={Heart}
           trend={{ value: 3.5, label: 'this month' }}
