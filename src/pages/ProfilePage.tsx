@@ -59,7 +59,7 @@ export function ProfilePage() {
   const createProfile = useCreateProfile()
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
 
-  const { register, handleSubmit, reset, setValue, watch } = useForm<ProfileForm>({
+  const { register, handleSubmit, reset } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
   })
 
@@ -81,10 +81,6 @@ export function ProfilePage() {
       })
     }
   }, [profile, reset, user])
-
-  useEffect(() => {
-    setAvatarUrl(authService.getAvatar())
-  }, [])
 
   const onSubmit = async (data: ProfileForm) => {
     const payload: FullProfile = {
@@ -173,8 +169,8 @@ export function ProfilePage() {
       <Card>
         <CardContent className="flex items-center gap-6 p-6">
           <Avatar className="h-20 w-20">
-            {avatarUrl ? (
-              <AvatarImage src={avatarUrl} alt="Avatar" />
+            {user?.avatar_url ? (
+              <AvatarImage src={user.avatar_url} alt="Avatar" />
             ) : (
               <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-500 text-white text-2xl">
                 {initials}
