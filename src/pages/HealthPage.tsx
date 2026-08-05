@@ -26,15 +26,43 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useProfile } from '@/hooks'
+import { Button } from '@/components/ui/button'
+import { ROUTES } from '@/utils/constants'
 import { buildHealthPageData } from '@/utils/profileInsights'
 
 export function HealthPage() {
-  const { data: profile } = useProfile()
+  const { data: profile, isLoading: isProfileLoading } = useProfile()
+  const navigate = useNavigate()
   const healthData = useMemo(() => buildHealthPageData(profile), [profile])
   const { bmi, bmiStatus, sleep, stress, calories, water, weeklyActivity, dietSuggestions, workoutSuggestions } = healthData
 
   const bmiColor = bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
+
+  if (isProfileLoading) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="Health Dashboard" description="Loading profile..." />
+        <div className="flex justify-center py-12"><div className="loader" /></div>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="Health Dashboard" description="Complete your profile to see health insights" badge="Profile Needed" />
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-semibold mb-2">No health profile</h3>
+            <p className="text-sm text-muted-foreground mb-4">Provide basic health details to view personalized BMI, sleep, and workout recommendations.</p>
+            <Button variant="gradient" onClick={() => navigate(ROUTES.PROFILE)}>Edit Profile</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
