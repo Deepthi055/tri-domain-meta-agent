@@ -67,7 +67,7 @@ export function CareerPage() {
         />
         <MetricCard
           title="Predicted Salary"
-          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Set profile'}
+          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Complete your finance profile'}
           subtitle={`In ${salaryPrediction.timeframe}`}
           icon={DollarSign}
           gradient="from-amber-500 to-orange-500"
