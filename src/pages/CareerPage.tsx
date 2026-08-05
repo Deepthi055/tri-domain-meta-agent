@@ -33,6 +33,13 @@ export function CareerPage() {
   const { data: profile } = useProfile()
   const careerData = useMemo(() => buildCareerPageData(profile), [profile])
   const { skills, roadmap, salaryPrediction, certifications, jobRecommendations, progressData } = careerData
+  const targetRoleLabel = profile?.career?.target_role || 'Set target role'
+  const targetRoleChange = profile?.career?.target_role
+    ? `Progress toward ${profile.career.target_role}`
+    : 'Add a target role for tailored recommendations'
+  const resumeTip = profile?.career?.resume
+    ? `Update resume with ${profile?.career?.target_role || 'career'} achievements`
+    : 'Add your resume summary to improve guidance'
 
   return (
     <div className="space-y-8">
@@ -60,7 +67,7 @@ export function CareerPage() {
         />
         <MetricCard
           title="Predicted Salary"
-          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Set profile' }
+          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Set profile'}
           subtitle={`In ${salaryPrediction.timeframe}`}
           icon={DollarSign}
           gradient="from-amber-500 to-orange-500"
@@ -177,15 +184,15 @@ export function CareerPage() {
         />
         <StatCard
           label="Target Role"
-          value="Data Scientist"
-          change="+41% growth potential"
+          value={targetRoleLabel}
+          change={targetRoleChange}
           icon={TrendingUp}
           iconColor="text-emerald-500"
         />
         <StatCard
           label="Resume Tips"
-          value="3 suggestions"
-          change="Update ML projects section"
+          value={resumeTip}
+          change={profile?.career?.resume ? 'Resume profile detected' : 'Complete your profile'}
           icon={BookOpen}
           iconColor="text-purple-500"
         />
@@ -196,24 +203,28 @@ export function CareerPage() {
           <CardTitle className="text-base">Job Recommendations</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 md:grid-cols-3">
-            {jobRecommendations.map((job) => (
-              <motion.div
-                key={job.title}
-                whileHover={{ y: -2 }}
-                className="rounded-xl border p-4 transition-shadow hover:shadow-card-hover"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-semibold">{job.title}</h4>
-                  <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                    {job.match}% match
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">{job.company}</p>
-                <Progress value={job.match} className="mt-3 h-1" />
-              </motion.div>
-            ))}
-          </div>
+          {jobRecommendations.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Update your career details to receive personalized job matches.</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-3">
+              {jobRecommendations.map((job) => (
+                <motion.div
+                  key={`${job.title}-${job.company}`}
+                  whileHover={{ y: -2 }}
+                  className="rounded-xl border p-4 transition-shadow hover:shadow-card-hover"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold">{job.title}</h4>
+                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                      {job.match}% match
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground">{job.company}</p>
+                  <Progress value={job.match} className="mt-3 h-1" />
+                </motion.div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
