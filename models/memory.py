@@ -6,7 +6,7 @@ Long-term memory store. Each row is a single extracted fact about the user
 and an importance score used to rank what gets pulled into future prompts.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, String, Text, Float, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -28,6 +28,6 @@ class UserMemory(Base):
     category = Column(String(30), nullable=False)
     # "career" | "health" | "finance" | "preference" | "goal" | "skill"
     importance_score = Column(Float, default=0.5)  # 0.0 - 1.0
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="memories")

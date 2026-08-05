@@ -5,7 +5,7 @@ Core User table. Holds login credentials only — all domain-specific data
 lives in app/models/profile.py, linked by user_id.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, Column, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
@@ -25,8 +25,8 @@ class User(Base):
     name = Column(String(120), nullable=False)
     email = Column(String(255), unique=True, nullable=False, index=True)
     password_hash = Column(String(255), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     avatar_url = Column(String(1024), nullable=True)
     two_factor_enabled = Column(Boolean, default=False, nullable=False)
     two_factor_secret = Column(String(255), nullable=True)
