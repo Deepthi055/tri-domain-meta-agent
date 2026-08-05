@@ -35,12 +35,12 @@ export const DOMAIN_COLORS = {
 } as const
 
 export const SUGGESTED_PROMPTS = [
-  { domain: 'career', text: 'What skills should I learn to become a data scientist?' },
-  { domain: 'career', text: 'Analyze my career path and suggest next steps' },
-  { domain: 'health', text: 'Create a workout plan for my fitness goals' },
-  { domain: 'health', text: 'How can I improve my sleep quality?' },
-  { domain: 'finance', text: 'Help me create a monthly budget plan' },
-  { domain: 'finance', text: 'What investment options suit my risk profile?' },
+  { domain: 'career', text: 'What career steps should I take next?' },
+  { domain: 'career', text: 'Help me plan my next professional development move' },
+  { domain: 'health', text: 'Create a fitness plan tailored to my wellness goals' },
+  { domain: 'health', text: 'How can I improve my daily routine for better health?' },
+  { domain: 'finance', text: 'Help me create a sensible monthly budget plan' },
+  { domain: 'finance', text: 'What financial actions should I take to boost savings?' },
   { domain: 'auto', text: 'Give me a holistic life improvement plan' },
   { domain: 'auto', text: 'What should I focus on this month across all domains?' },
 ] as const
