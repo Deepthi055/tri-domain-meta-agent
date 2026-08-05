@@ -80,11 +80,31 @@ def upgrade():
                 pass
 
     else:
-        # For non-Postgres DBs (e.g. SQLite) automated column-type changes are unsafe.
-        # Please create a manual migration for your DB: create new tables with
-        # timezone-aware columns, copy and convert values (assuming stored as UTC),
-        # drop old tables and rename. This migration intentionally no-ops on SQLite.
-        pass
+        # For SQLite and other DBs we avoid destructive ALTERs. Instead create
+        # safe backups of the affected tables so operators can perform manual
+        # conversion without data loss. This keeps the migration non-destructive.
+        tables = [
+            ('conversations', ['created_at']),
+            ('messages', ['timestamp']),
+            ('users', ['created_at', 'updated_at']),
+            ('user_memory', ['created_at']),
+            ('user_profiles', ['created_at']),
+            ('career_profiles', ['created_at']),
+            ('health_profiles', ['created_at']),
+            ('finance_profiles', ['created_at']),
+            ('reports', ['generated_at']),
+        ]
+        for tbl, cols in tables:
+            try:
+                # create a safe backup table with all data
+                op.execute(f"CREATE TABLE IF NOT EXISTS {tbl}_backup_before_tz AS SELECT * FROM {tbl};")
+            except Exception:
+                # best-effort: continue if table doesn't exist
+                pass
+        # Note: manual migration steps for SQLite are required to replace columns.
+        # This avoids risky in-place schema rewrites on SQLite which lacks
+        # ALTER COLUMN support. Operators can inspect *_backup_before_tz tables
+        # and perform conversion steps offline, then recreate tables and restore.
 
 
 def downgrade():
