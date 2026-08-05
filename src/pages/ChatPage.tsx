@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { Send, Plus, Sparkles, Zap, GitCompare } from 'lucide-react'
@@ -37,6 +37,38 @@ export function ChatPage() {
   const location = useLocation()
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const { data: profile } = useProfile()
+  const suggestedPrompts = useMemo(() => {
+    const prompts = [] as Array<{ domain: string; text: string }>
+
+    if (profile?.career?.target_role) {
+      prompts.push({
+        domain: 'career',
+        text: `What should I do next to become a ${profile.career.target_role}?`,
+      })
+    }
+
+    if (profile?.health?.fitness_goal) {
+      prompts.push({
+        domain: 'health',
+        text: `How can I improve my ${profile.health.fitness_goal} plan?`,
+      })
+    }
+
+    if (profile?.finance?.monthly_income || profile?.finance?.monthly_expenses) {
+      prompts.push({
+        domain: 'finance',
+        text: 'Help me optimize my budget and savings based on my current finances.',
+      })
+    }
+
+    if (prompts.length === 0) {
+      return SUGGESTED_PROMPTS.slice(0, 4)
+    }
+
+    return [...prompts, ...SUGGESTED_PROMPTS].slice(0, 4)
+  }, [profile])
+
   const [messages, setMessages] = useState<LocalMessage[]>([])
   const [input, setInput] = useState('')
   const [domain, setDomain] = useState<string>('auto')
@@ -49,7 +81,6 @@ export function ChatPage() {
     langchain?: QueryResponse & { executionTime: number }
   } | null>(null)
 
-  const { data: profile } = useProfile()
   const { data: history } = useChatHistory()
   const { data: conversation } = useConversation(conversationId)
   const sendChat = useSendChat()
@@ -319,7 +350,7 @@ export function ChatPage() {
                   Ask about career growth, health goals, or financial planning
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2">
-                  {SUGGESTED_PROMPTS.slice(0, 4).map((prompt) => (
+                  {suggestedPrompts.map((prompt) => (
                     <Button
                       key={prompt.text}
                       variant="outline"

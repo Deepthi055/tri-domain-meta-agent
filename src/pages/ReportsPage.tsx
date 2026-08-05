@@ -51,13 +51,14 @@ export function ReportsPage() {
       a.click()
       URL.revokeObjectURL(url)
       toast.success('Report downloaded')
-    } catch {
-      toast.info('Download will be available when backend is connected')
+    } catch (err) {
+      toast.error(getErrorMessage(err) || 'Unable to download report')
     }
   }
 
   const handlePreview = (id: string) => {
-    toast.info(`Preview for report ${id.slice(0, 8)}...`)
+    const previewUrl = reportService.getDownloadUrl(id)
+    window.open(previewUrl, '_blank')
   }
 
   return (
