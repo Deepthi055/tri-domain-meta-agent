@@ -87,6 +87,7 @@ export function useChatHistory() {
   return useQuery({
     queryKey: queryKeys.chatHistory,
     queryFn: () => chatService.getHistory(),
+    refetchInterval: 5000,
   })
 }
 

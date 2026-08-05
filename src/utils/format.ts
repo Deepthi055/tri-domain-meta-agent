@@ -1,8 +1,10 @@
-import { format, formatDistanceToNow, parseISO } from 'date-fns'
+import { format, parseISO, isToday, isYesterday } from 'date-fns'
 
 export function formatRelativeDate(date: string | Date): string {
   const d = typeof date === 'string' ? parseISO(date) : date
-  return formatDistanceToNow(d, { addSuffix: true })
+  if (isToday(d)) return `Today ${format(d, 'h:mm a')}`
+  if (isYesterday(d)) return `Yesterday ${format(d, 'h:mm a')}`
+  return format(d, 'MMM d, yyyy h:mm a')
 }
 
 export function formatDate(date: string | Date, pattern = 'MMM d, yyyy'): string {
