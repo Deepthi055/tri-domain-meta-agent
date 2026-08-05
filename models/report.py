@@ -6,7 +6,7 @@ REPORTS_DIR; this row stores the path + metadata so it can be listed and
 re-downloaded later.
 """
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
@@ -26,6 +26,6 @@ class Report(Base):
     user_id = Column(UUID(as_uuid=False), ForeignKey("users.id"), nullable=False, index=True)
     report_name = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
-    generated_at = Column(DateTime, default=datetime.utcnow)
+    generated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="reports")
