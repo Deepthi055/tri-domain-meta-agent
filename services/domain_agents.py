@@ -109,6 +109,20 @@ Respond ONLY as JSON.
 """
 }
 
+# Generic fallback system prompt used when intent detector returns 'general'
+SYSTEM_PROMPTS["general"] = """
+You are a helpful multi-domain advisor. When the user's intent is unclear, provide a concise, balanced response
+that covers career, health, and finance as relevant. Prefer asking a clarifying question if necessary.
+
+Respond ONLY as JSON.
+
+{
+    "recommendation":"...",
+    "reason":"...",
+    "confidence":0.75
+}
+"""
+
 
 def build_metrics(db: Session, user_id: str, domain: str) -> str:
     """
