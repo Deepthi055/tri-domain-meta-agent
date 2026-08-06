@@ -3,11 +3,11 @@ import { useForm, Controller } from 'react-hook-form'
 import { useQueryClient } from '@tanstack/react-query'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Loader2, Save, User, Briefcase, Heart, DollarSign } from 'lucide-react'
+import { Loader2, Save, User, Briefcase, Heart, DollarSign, Upload, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/AuthContext'
 import { useLanguage } from '@/contexts/LanguageContext'
-import { authService, getErrorMessage, profileService } from '@/services'
+import { authService, getErrorMessage, memoryService, profileService } from '@/services'
 import { useProfile, queryKeys, invalidateProfileDependentQueries } from '@/hooks'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/button'
@@ -164,7 +164,7 @@ export function ProfilePage() {
   const queryClient = useQueryClient()
   const { data: profile, isLoading, refetch } = useProfile()
 
-  const { register, control, handleSubmit, reset, formState: { isSubmitting } } = useForm<ProfileForm>({
+  const { register, control, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: user?.name || '',
@@ -176,6 +176,8 @@ export function ProfilePage() {
   })
   const initializedRef = useRef(false)
   const [hasProfile, setHasProfile] = useState(false)
+  const [resumeFileName, setResumeFileName] = useState<string | null>(null)
+  const [resumeUploadMessage, setResumeUploadMessage] = useState<string | null>(null)
 
   const profileHasData = useMemo(() => {
     if (!profile) return false
@@ -264,6 +266,66 @@ export function ProfilePage() {
       toast.success(t('avatarDeleted'))
     } catch (err) {
       toast.error(getErrorMessage(err))
+    }
+  }
+
+  const handleResumeUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setResumeFileName(file.name)
+    setResumeUploadMessage('Processing resume...')
+
+    try {
+      let resumeValue = `Uploaded resume: ${file.name}`
+      let memoryText = `Career resume uploaded: ${file.name}`
+
+      // Only try to extract text from text-based files, not binary files
+      const textFileExtensions = ['.txt', '.md', '.csv', '.log']
+      const isTextFile = textFileExtensions.some((ext) => file.name.toLowerCase().endsWith(ext))
+
+      if (isTextFile) {
+        try {
+          const text = await file.text()
+          if (text?.trim()) {
+            const preview = text.replace(/\s+/g, ' ').trim().slice(0, 1200)
+            resumeValue = preview.length > 1800 ? `${preview.slice(0, 1797)}...` : preview
+            memoryText = `Career resume uploaded: ${file.name}. Preview: ${preview}`
+          }
+        } catch (readErr) {
+          // File read failed; just use the filename
+          console.warn('Could not read file as text:', readErr)
+          resumeValue = `Uploaded resume: ${file.name}`
+        }
+      } else {
+        // For binary files (PDF, DOCX, etc.), store just the filename as reference
+        resumeValue = `Uploaded resume: ${file.name}`
+      }
+
+      // Save resume to form state first (critical step)
+      setValue('career.resume', resumeValue)
+
+      // Try to save to memory, but don't fail if it doesn't work
+      try {
+        await memoryService.create({
+          memory_text: memoryText,
+          category: 'career',
+          importance_score: 0.95,
+        })
+        setResumeUploadMessage(`Resume uploaded and saved to your memories as ${file.name}`)
+        toast.success('Resume uploaded and saved to your memories')
+      } catch (memoryErr) {
+        // Memory save failed, but resume is still saved in the form
+        console.error('Memory save error:', memoryErr)
+        setResumeUploadMessage(`Resume uploaded as ${file.name} (memory save failed, but will be saved with profile)`)
+        toast.warning('Resume uploaded, but memory save failed. It will be saved when you click Save Changes.')
+      }
+    } catch (err) {
+      console.error('Resume upload error:', err)
+      setResumeUploadMessage('Unable to process resume file.')
+      toast.error(getErrorMessage(err))
+    } finally {
+      event.target.value = ''
     }
   }
 
@@ -446,7 +508,31 @@ export function ProfilePage() {
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Resume</Label>
-                  <Textarea {...register('career.resume')} placeholder="Paste resume summary or profile description" />
+                  <div className="rounded-lg border border-dashed border-input p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <p className="text-sm font-medium">Upload your resume PDF or text file</p>
+                        <p className="text-sm text-muted-foreground">
+                          Your uploaded resume will be saved as a career memory for the dashboard and future conversations.
+                        </p>
+                      </div>
+                      <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition hover:bg-muted">
+                        <Upload className="h-4 w-4" />
+                        Upload Resume
+                        <input type="file" accept=".pdf,.txt,.md,.doc,.docx" className="sr-only" onChange={handleResumeUpload} />
+                      </label>
+                    </div>
+                    {resumeFileName ? (
+                      <div className="mt-3 flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
+                        <FileText className="h-4 w-4 text-primary" />
+                        <span>{resumeFileName}</span>
+                      </div>
+                    ) : null}
+                    {resumeUploadMessage ? (
+                      <p className="mt-3 text-sm text-muted-foreground">{resumeUploadMessage}</p>
+                    ) : null}
+                  </div>
+                  <input type="hidden" {...register('career.resume')} />
                 </div>
               </CardContent>
             </Card>
