@@ -7,7 +7,7 @@ lives in app/models/profile.py, linked by user_id.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Column, String, DateTime
+from sqlalchemy import Boolean, Column, String, DateTime
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,9 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    avatar_url = Column(String(1024), nullable=True)
+    two_factor_enabled = Column(Boolean, default=False, nullable=False)
+    two_factor_secret = Column(String(255), nullable=True)
 
     # ── Relationships ────────────────────────────────────────────
     profile = relationship(

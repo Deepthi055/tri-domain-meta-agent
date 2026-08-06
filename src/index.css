@@ -1,0 +1,154 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 20% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 174 72% 40%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 160 84% 39%;
+    --radius: 0.75rem;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 20% 98%;
+    --card: 222 47% 9%;
+    --card-foreground: 210 20% 98%;
+    --popover: 222 47% 9%;
+    --popover-foreground: 210 20% 98%;
+    --primary: 160 72% 45%;
+    --primary-foreground: 222 47% 6%;
+    --secondary: 217 33% 14%;
+    --secondary-foreground: 210 20% 98%;
+    --muted: 217 33% 14%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 174 62% 45%;
+    --accent-foreground: 222 47% 6%;
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 20% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 160 72% 45%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-muted-foreground/20;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/40;
+  }
+}
+
+@layer utilities {
+  .glass {
+    @apply bg-card/60 backdrop-blur-xl border border-border/50;
+  }
+
+  .glass-strong {
+    @apply bg-card/80 backdrop-blur-2xl border border-border/60;
+  }
+
+  .gradient-text {
+    @apply bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 bg-clip-text text-transparent;
+  }
+
+  .gradient-border {
+    position: relative;
+  }
+
+  .gradient-border::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, hsl(160 84% 39%), hsl(174 72% 40%));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .mesh-bg {
+    background-image: radial-gradient(at 40% 20%, hsl(160 84% 39% / 0.12) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(174 72% 40% / 0.08) 0px, transparent 50%),
+      radial-gradient(at 0% 50%, hsl(160 84% 39% / 0.06) 0px, transparent 50%);
+  }
+
+  .prose-chat {
+    @apply text-sm leading-relaxed;
+  }
+
+  .prose-chat pre {
+    @apply rounded-lg bg-secondary/80 p-4 overflow-x-auto my-3 text-xs;
+  }
+
+  .prose-chat code {
+    @apply rounded bg-secondary px-1.5 py-0.5 text-xs font-mono;
+  }
+
+  .prose-chat pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .prose-chat p {
+    @apply mb-3 last:mb-0;
+  }
+
+  .prose-chat ul, .prose-chat ol {
+    @apply mb-3 pl-5;
+  }
+
+  .prose-chat li {
+    @apply mb-1;
+  }
+
+  .skeleton-shimmer {
+    @apply relative overflow-hidden bg-muted;
+  }
+
+  .skeleton-shimmer::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer;
+    background: linear-gradient(90deg, transparent, hsl(var(--muted-foreground) / 0.08), transparent);
+  }
+}

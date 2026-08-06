@@ -1,8 +1,28 @@
+# Environment
 .env
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+
+# Test files
 test_groq.py
+
+# RAG index files (rebuild locally with: python rag/embedder.py)
 rag/career_index.faiss
 rag/career_meta.pkl
+rag/tridomain_index.faiss
+rag/tridomain_meta.pkl
+
+# Generated reports (created at runtime)
+reports/*.pdf
+
+# Database files
+tridomain.db
+
+# Virtual environments
 venv/
 .venv/
+
+node_modules/

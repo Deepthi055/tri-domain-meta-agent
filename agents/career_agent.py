@@ -97,17 +97,20 @@ Give specific career advice based on ALL this data."""
 
     llm_response = call_llm(system_prompt, user_message, temperature=0.7)
 
+    from core.explainability import build_explainability
+
     result = {
-        "domain":           "career",
-        "skill_gap":        gap_data,
-        "job_matches":      jobs_data,
+        "domain": "career",
+        "skill_gap": gap_data,
+        "job_matches": jobs_data,
         "salary_benchmark": salary_data,
-        "learning_path":    path_data,
-        "rag_used":         RAG_AVAILABLE and bool(rag_context),
+        "learning_path": path_data,
         **llm_response
     }
 
     if resume_data:
         result["resume_analysis"] = resume_data
+
+    result["explainability"] = build_explainability("career", result, request)
 
     return result

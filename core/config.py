@@ -9,8 +9,17 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    # ── PostgreSQL ──────────────────────────────────────────────
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/tridomain"
+    # ── Database ────────────────────────────────────────────────
+    DATABASE_URL: str = "sqlite:///./tridomain.db"
+    GOOGLE_EMAIL_DOMAINS: str = "gmail.com,googlemail.com"
+
+    @property
+    def database_url(self) -> str:
+        return self.DATABASE_URL
+
+    @property
+    def allowed_google_email_domains(self) -> list[str]:
+        return [domain.strip().lower() for domain in self.GOOGLE_EMAIL_DOMAINS.split(',') if domain.strip()]
 
     # ── JWT ─────────────────────────────────────────────────────
     JWT_SECRET_KEY: str = "change-this-to-a-long-random-secret"
@@ -25,11 +34,12 @@ class Settings(BaseSettings):
     EMBEDDING_MODEL: str = "all-MiniLM-L6-v2"
     FAISS_INDEX_PATH: str = ".rag/index_store/faiss.index"
     FAISS_DOCS_PATH: str = ".rag/index_store/docs.json"
+    HF_TOKEN: str = ""
 
     # ── Reports ─────────────────────────────────────────────────
     REPORTS_DIR: str = "./reports"
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="allow")
 
 
 settings = Settings()

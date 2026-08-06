@@ -1,9 +1,10 @@
 
-sqlalchemy==2.0.30
-psycopg2-binary==2.9.9
+sqlalchemy==2.0.51
+psycopg2-binary==2.9.12
 alembic==1.13.1
 python-dotenv==1.0.1
-pydantic==2.7.1
+pydantic==2.12.5
+pydantic-core==2.41.5
 pydantic-settings==2.2.1
 passlib[bcrypt]==1.7.4
 bcrypt==4.0.1
@@ -12,7 +13,12 @@ bcrypt==4.0.1
 # hash attempt regardless of actual password length.
 python-jose[cryptography]==3.3.0
 python-multipart==0.0.9
+email-validator==2.3.0
+fastapi==0.121.0
+uvicorn==0.27.0
 
-faiss-cpu==1.13.2
-numpy==2.2.6
+# Optional RAG / analytics dependencies
+# Install separately when using retrieval or vector search features
+# faiss-cpu==1.13.2
+# numpy==2.2.6
 reportlab==4.2.0
