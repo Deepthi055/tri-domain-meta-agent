@@ -20,7 +20,7 @@ import { ROUTES } from '@/utils/constants'
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to={ROUTES.DASHBOARD} replace />,
+    element: <Navigate to={ROUTES.PROFILE} replace />,
   },
   {
     element: <AuthLayout />,

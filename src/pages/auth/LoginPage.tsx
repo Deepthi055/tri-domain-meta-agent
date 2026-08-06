@@ -38,7 +38,7 @@ export function LoginPage() {
     try {
       await login(data.email, data.password)
       toast.success(t('welcome'))
-      navigate(ROUTES.DASHBOARD)
+      navigate(ROUTES.PROFILE)
     } catch (err) {
       toast.error(getErrorMessage(err))
     } finally {
