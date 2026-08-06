@@ -31,12 +31,13 @@ import { useProfile } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/utils/constants'
 import { formatCurrency, formatPercent } from '@/utils'
-import { buildFinancePageData } from '@/utils/profileInsights'
+import { calculateDomainScores, buildFinancePageData } from '@/utils/profileInsights'
 
 export function FinancePage() {
   const { data: profile, isLoading: isProfileLoading } = useProfile()
   const navigate = useNavigate()
   const financeData = useMemo(() => buildFinancePageData(profile), [profile])
+  const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
   const {
     monthlyIncome,
     monthlyExpenses,
@@ -48,6 +49,16 @@ export function FinancePage() {
     portfolio,
     investments,
   } = financeData
+  const hasFinanceData = Boolean(
+    profile?.finance?.monthly_income ||
+    profile?.finance?.monthly_expenses ||
+    profile?.finance?.savings_goal ||
+    profile?.finance?.investments ||
+    profile?.finance?.risk_appetite ||
+    profile?.finance?.investment_experience ||
+    profile?.finance?.financial_goals ||
+    profile?.finance?.budget,
+  )
 
   if (isProfileLoading) {
     return (
@@ -84,30 +95,30 @@ export function FinancePage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Finance Score"
-          value={Math.max(55, Math.round(savingsRate + 50))}
+          value={domainScores.finance}
           subtitle="Financial health"
           icon={TrendingUp}
-          trend={{ value: 4.1, label: 'this quarter' }}
+          trend={hasFinanceData ? { value: domainScores.finance, label: 'profile completion' } : undefined}
           gradient="from-amber-500 to-orange-500"
         />
         <MetricCard
           title="Monthly Income"
-          value={formatCurrency(monthlyIncome)}
+          value={monthlyIncome !== null ? formatCurrency(monthlyIncome) : 'No data available'}
           subtitle="Gross earnings"
           icon={ArrowUpRight}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard
           title="Monthly Expenses"
-          value={formatCurrency(monthlyExpenses)}
+          value={monthlyExpenses !== null ? formatCurrency(monthlyExpenses) : 'No data available'}
           subtitle="Total spending"
           icon={ArrowDownRight}
           gradient="from-rose-500 to-pink-500"
         />
         <MetricCard
           title="Savings"
-          value={formatCurrency(savings)}
-          subtitle={formatPercent(savingsRate, 1) + ' savings rate'}
+          value={savings !== null ? formatCurrency(savings) : 'No data available'}
+          subtitle={savingsRate !== null ? formatPercent(savingsRate, 1) + ' savings rate' : 'Complete your profile'}
           icon={PiggyBank}
           gradient="from-blue-500 to-indigo-500"
         />
@@ -115,8 +126,9 @@ export function FinancePage() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <ChartCard title="Budget Breakdown" description="Monthly expense distribution">
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
+          {budgetBreakdown.length ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
               <Pie
                 data={budgetBreakdown}
                 cx="50%"
@@ -138,8 +150,11 @@ export function FinancePage() {
                   borderRadius: '8px',
                 }}
               />
-            </PieChart>
-          </ResponsiveContainer>
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="No information available. Complete your profile to view budget breakdown." />
+          )}
           <div className="grid grid-cols-2 gap-2 mt-4">
             {budgetBreakdown.map((item) => (
               <div key={item.name} className="flex items-center gap-2 text-xs">
@@ -148,12 +163,14 @@ export function FinancePage() {
                 <span className="ml-auto font-medium">{formatCurrency(item.value)}</span>
               </div>
             ))}
+            {!budgetBreakdown.length && <EmptyState text="No information available. Complete your profile to see expense categories." />}
           </div>
         </ChartCard>
 
         <ChartCard title="Monthly Trend" description="Income, expenses, and savings over time">
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={monthlyTrend}>
+          {monthlyTrend.length ? (
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={monthlyTrend}>
               <defs>
                 <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -177,8 +194,11 @@ export function FinancePage() {
               />
               <Area type="monotone" dataKey="income" stroke="#10b981" fill="url(#incomeGrad)" strokeWidth={2} />
               <Area type="monotone" dataKey="expenses" stroke="#f43f5e" fill="url(#expenseGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="No information available. Complete your profile to view financial trends." />
+          )}
         </ChartCard>
       </div>
 
@@ -193,11 +213,11 @@ export function FinancePage() {
           <CardContent>
             <div className="flex items-center justify-center mb-4">
               <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-sm px-4 py-1">
-                {riskProfile}
+                {riskProfile || 'No data available'}
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground text-center">
-              Balanced approach with moderate equity exposure and stable debt instruments.
+              {riskProfile ? 'Derived from your profile data.' : 'Complete your profile to see a risk profile.'}
             </p>
           </CardContent>
         </Card>
@@ -221,6 +241,7 @@ export function FinancePage() {
                 <Progress value={asset.allocation} className="h-1.5" />
               </div>
             ))}
+            {!portfolio.length && <EmptyState text="No information available. Complete your profile to see portfolio allocation." />}
           </CardContent>
         </Card>
       </div>
@@ -245,9 +266,18 @@ export function FinancePage() {
                 <p className="text-sm">{rec}</p>
               </motion.div>
             ))}
+            {!investments.length && <EmptyState text="No information available. Complete your profile to receive recommendations." />}
           </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground md:col-span-2">
+      {text}
     </div>
   )
 }

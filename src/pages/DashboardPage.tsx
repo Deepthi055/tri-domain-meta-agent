@@ -39,6 +39,7 @@ import { ROUTES } from '@/utils/constants'
 import { activityIcons, domainIcons } from '@/utils/navigation'
 import { formatRelativeDate } from '@/utils'
 import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights, buildDashboardTrendValues } from '@/utils/profileInsights'
+import { hasProfileData } from '@/utils/profileInsights'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -57,20 +58,18 @@ export function DashboardPage() {
   const recentMemories = memories?.slice(0, 2) ?? []
   const latestReports = reports?.slice(0, 1) ?? []
   const recentActivities = useMemo(() => buildDashboardActivity(profile, conversations, memories, reports), [profile, conversations, memories, reports])
+  const profileHasData = hasProfileData(profile)
   const chartData = useMemo(() => {
-    const baseCareer = Math.max(50, Math.min(95, domainScores.career))
-    const baseHealth = Math.max(50, Math.min(95, domainScores.health))
-    const baseFinance = Math.max(50, Math.min(95, domainScores.finance))
+    if (!profileHasData) return []
+
+    const baseCareer = Math.max(0, Math.min(100, domainScores.career))
+    const baseHealth = Math.max(0, Math.min(100, domainScores.health))
+    const baseFinance = Math.max(0, Math.min(100, domainScores.finance))
 
     return [
-      { month: 'Jan', career: Math.max(45, baseCareer - 12), health: Math.max(45, baseHealth - 10), finance: Math.max(45, baseFinance - 12) },
-      { month: 'Feb', career: Math.max(48, baseCareer - 8), health: Math.max(48, baseHealth - 6), finance: Math.max(48, baseFinance - 8) },
-      { month: 'Mar', career: Math.max(52, baseCareer - 4), health: Math.max(52, baseHealth - 3), finance: Math.max(52, baseFinance - 4) },
-      { month: 'Apr', career: Math.max(56, baseCareer), health: Math.max(56, baseHealth), finance: Math.max(56, baseFinance) },
-      { month: 'May', career: Math.max(60, baseCareer + 3), health: Math.max(60, baseHealth + 3), finance: Math.max(60, baseFinance + 3) },
-      { month: 'Jun', career: baseCareer, health: baseHealth, finance: baseFinance },
+      { month: 'Current', career: baseCareer, health: baseHealth, finance: baseFinance },
     ]
-  }, [domainScores])
+  }, [domainScores, profileHasData])
 
   const handleQuickSearch = () => {
     if (searchQuery.trim()) {
@@ -160,7 +159,7 @@ export function DashboardPage() {
           value={domainScores.overall}
           subtitle="Across all domains"
           icon={TrendingUp}
-          trend={{ value: trendValues.overall, label: 'profile completion' }}
+          trend={profileHasData ? { value: trendValues.overall, label: 'profile completion' } : undefined}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard
@@ -225,9 +224,10 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Domain Progress" description="Score trends over 6 months">
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={chartData}>
+        <ChartCard title="Domain Progress" description={profileHasData ? 'Current profile snapshot' : 'No data available'}>
+          {chartData.length ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="careerGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -254,9 +254,14 @@ export function DashboardPage() {
               />
               <Area type="monotone" dataKey="career" stroke="#3b82f6" fill="url(#careerGrad)" strokeWidth={2} />
               <Area type="monotone" dataKey="health" stroke="#10b981" fill="url(#healthGrad)" strokeWidth={2} />
-              <Area type="monotone" dataKey="finance" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+                <Area type="monotone" dataKey="finance" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[250px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
+              No data available. Complete your profile to view chart trends.
+            </div>
+          )}
         </ChartCard>
 
         <Card>
@@ -297,29 +302,37 @@ export function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3">
           <h3 className="font-semibold">Recent Conversations</h3>
-          {recentConversations.map((conv) => (
+          {recentConversations.length ? recentConversations.map((conv) => (
             <ConversationCard
               key={conv.id}
               conversation={conv}
               onClick={() => navigate(ROUTES.CHAT, { state: { conversationId: conv.id } })}
             />
-          ))}
+          )) : <EmptyState text="No information available. Complete your profile or start a conversation." />}
         </div>
 
         <div className="space-y-3">
           <h3 className="font-semibold">Latest Memories</h3>
-          {recentMemories.map((mem) => (
+          {recentMemories.length ? recentMemories.map((mem) => (
             <MemoryCard key={mem.id} memory={mem} />
-          ))}
+          )) : <EmptyState text="No information available. Complete your profile to save insights." />}
         </div>
 
         <div className="space-y-3">
           <h3 className="font-semibold">Latest Report</h3>
-          {latestReports.map((report) => (
+          {latestReports.length ? latestReports.map((report) => (
             <ReportCard key={report.id} report={report} />
-          ))}
+          )) : <EmptyState text="No information available. Complete your profile to generate reports." />}
         </div>
       </div>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+      {text}
     </div>
   )
 }

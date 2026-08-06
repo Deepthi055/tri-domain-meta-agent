@@ -30,13 +30,27 @@ import { useNavigate } from 'react-router-dom'
 import { useProfile } from '@/hooks'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/utils/constants'
-import { buildHealthPageData } from '@/utils/profileInsights'
+import { calculateDomainScores, buildHealthPageData } from '@/utils/profileInsights'
 
 export function HealthPage() {
   const { data: profile, isLoading: isProfileLoading } = useProfile()
   const navigate = useNavigate()
   const healthData = useMemo(() => buildHealthPageData(profile), [profile])
   const { bmi, bmiStatus, sleep, stress, calories, water, weeklyActivity, dietSuggestions, workoutSuggestions } = healthData
+  const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
+  const hasHealthData = Boolean(
+    profile?.general?.height_cm ||
+    profile?.general?.weight_kg ||
+    profile?.health?.medical_conditions ||
+    profile?.health?.lifestyle ||
+    profile?.health?.fitness_goal ||
+    profile?.health?.sleep_hours ||
+    profile?.health?.sleep_quality ||
+    profile?.health?.diet_preference ||
+    profile?.health?.workout ||
+    profile?.health?.health_goals ||
+    profile?.health?.water_intake,
+  )
 
   const bmiColor = bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
 
@@ -75,10 +89,10 @@ export function HealthPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Health Score"
-          value={Math.max(60, Math.round((profile?.health?.sleep_hours || 0) * 8 + (profile?.health?.sleep_quality || 0) * 3 + 40))}
+          value={domainScores.health}
           subtitle="Overall wellness"
           icon={Heart}
-          trend={{ value: 3.5, label: 'this month' }}
+          trend={hasHealthData ? { value: domainScores.health, label: 'profile completion' } : undefined}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard
@@ -90,15 +104,15 @@ export function HealthPage() {
         />
         <MetricCard
           title="Sleep"
-          value={`${sleep.hours}h`}
-          subtitle={`Quality: ${sleep.quality}/10`}
+          value={sleep.hours !== null ? `${sleep.hours}h` : 'No data available'}
+          subtitle={sleep.quality !== null ? `Quality: ${sleep.quality}/10` : 'Complete your profile'}
           icon={Moon}
           gradient="from-indigo-500 to-purple-500"
         />
         <MetricCard
           title="Stress Level"
-          value={`${stress.level}/10`}
-          subtitle={stress.trend}
+          value={stress.level !== null ? `${stress.level}/10` : 'No data available'}
+          subtitle={stress.level !== null ? stress.trend : 'Complete your profile'}
           icon={Activity}
           gradient="from-rose-500 to-pink-500"
         />
@@ -113,16 +127,18 @@ export function HealthPage() {
             <div className="relative h-40 w-40">
               <svg viewBox="0 0 100 100" className="h-full w-full -rotate-90">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="hsl(var(--muted))" strokeWidth="8" />
-                <circle
-                  cx="50"
-                  cy="50"
-                  r="40"
-                  fill="none"
-                  stroke="url(#bmiGrad)"
-                  strokeWidth="8"
-                  strokeDasharray={`${(bmi / 40) * 251} 251`}
-                  strokeLinecap="round"
-                />
+                {bmi > 0 && (
+                  <circle
+                    cx="50"
+                    cy="50"
+                    r="40"
+                    fill="none"
+                    stroke="url(#bmiGrad)"
+                    strokeWidth="8"
+                    strokeDasharray={`${(bmi / 40) * 251} 251`}
+                    strokeLinecap="round"
+                  />
+                )}
                 <defs>
                   <linearGradient id="bmiGrad">
                     <stop offset="0%" stopColor="#10b981" />
@@ -131,19 +147,20 @@ export function HealthPage() {
                 </defs>
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold">{bmi}</span>
+                <span className="text-3xl font-bold">{bmi > 0 ? bmi : '—'}</span>
                 <span className={`text-xs font-medium ${bmiColor}`}>{bmiStatus}</span>
               </div>
             </div>
             <p className="text-sm text-muted-foreground text-center mt-4">
-              Healthy BMI range: 18.5 – 24.9
+              {bmi > 0 ? 'Healthy BMI range: 18.5 – 24.9' : 'No information available. Complete your profile to calculate BMI.'}
             </p>
           </CardContent>
         </Card>
 
         <ChartCard title="Weekly Activity" description="Steps and workout minutes" className="lg:col-span-2">
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={weeklyActivity}>
+          {weeklyActivity.length ? (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={weeklyActivity}>
               <defs>
                 <linearGradient id="stepsGrad" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
@@ -162,8 +179,11 @@ export function HealthPage() {
               />
               <Area type="monotone" dataKey="steps" stroke="#10b981" fill="url(#stepsGrad)" strokeWidth={2} />
               <Line type="monotone" dataKey="workout" stroke="#14b8a6" strokeWidth={2} dot={{ r: 4 }} />
-            </AreaChart>
-          </ResponsiveContainer>
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyState text="No information available. Complete your profile to see activity trends." />
+          )}
         </ChartCard>
       </div>
 
@@ -176,11 +196,19 @@ export function HealthPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Calories</p>
-                <p className="text-xl font-bold">{calories.consumed} / {calories.target}</p>
+                <p className="text-xl font-bold">
+                  {calories.consumed !== null && calories.target !== null ? `${calories.consumed} / ${calories.target}` : 'No information available'}
+                </p>
               </div>
             </div>
-            <Progress value={(calories.consumed / calories.target) * 100} className="h-2 mb-2" />
-            <p className="text-xs text-muted-foreground">Burned: {calories.burned} kcal today</p>
+            {calories.consumed !== null && calories.target !== null ? (
+              <Progress value={(calories.consumed / calories.target) * 100} className="h-2 mb-2" />
+            ) : (
+              <div className="h-2 mb-2 rounded-full bg-muted" />
+            )}
+            <p className="text-xs text-muted-foreground">
+              {calories.burned !== null ? `Burned: ${calories.burned} kcal today` : 'Complete your profile to track calories'}
+            </p>
           </CardContent>
         </Card>
 
@@ -192,10 +220,16 @@ export function HealthPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Water Intake</p>
-                <p className="text-xl font-bold">{water.glasses} / {water.target} glasses</p>
+                <p className="text-xl font-bold">
+                  {water.glasses !== null && water.target !== null ? `${water.glasses} / ${water.target} glasses` : 'No information available'}
+                </p>
               </div>
             </div>
-            <Progress value={(water.glasses / water.target) * 100} className="h-2" />
+            {water.glasses !== null && water.target !== null ? (
+              <Progress value={(water.glasses / water.target) * 100} className="h-2" />
+            ) : (
+              <div className="h-2 rounded-full bg-muted" />
+            )}
           </CardContent>
         </Card>
 
@@ -207,10 +241,10 @@ export function HealthPage() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Sleep Quality</p>
-                <p className="text-xl font-bold">{sleep.quality}/10</p>
+                <p className="text-xl font-bold">{sleep.quality !== null ? `${sleep.quality}/10` : 'No information available'}</p>
               </div>
             </div>
-            <Badge variant="secondary" className="text-[10px] capitalize">{sleep.trend}</Badge>
+            {sleep.quality !== null && <Badge variant="secondary" className="text-[10px] capitalize">{sleep.trend}</Badge>}
           </CardContent>
         </Card>
       </div>
@@ -238,6 +272,7 @@ export function HealthPage() {
                 <p className="text-sm">{tip}</p>
               </motion.div>
             ))}
+            {!dietSuggestions.length && <EmptyState text="No information available. Complete your profile to receive diet guidance." />}
           </CardContent>
         </Card>
 
@@ -263,9 +298,18 @@ export function HealthPage() {
                 <p className="text-sm">{tip}</p>
               </motion.div>
             ))}
+            {!workoutSuggestions.length && <EmptyState text="No information available. Complete your profile to receive workout guidance." />}
           </CardContent>
         </Card>
       </div>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+      {text}
     </div>
   )
 }

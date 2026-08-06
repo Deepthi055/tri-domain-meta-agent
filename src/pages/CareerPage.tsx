@@ -27,19 +27,20 @@ import { Progress } from '@/components/ui/progress'
 import { useMemo } from 'react'
 import { useProfile } from '@/hooks'
 import { formatCurrency } from '@/utils'
-import { buildCareerPageData } from '@/utils/profileInsights'
+import { calculateDomainScores, buildCareerPageData } from '@/utils/profileInsights'
 
 export function CareerPage() {
   const { data: profile } = useProfile()
   const careerData = useMemo(() => buildCareerPageData(profile), [profile])
   const { skills, roadmap, salaryPrediction, certifications, jobRecommendations, progressData } = careerData
-  const targetRoleLabel = profile?.career?.target_role || 'Set target role'
-  const targetRoleChange = profile?.career?.target_role
-    ? `Progress toward ${profile.career.target_role}`
-    : 'Add a target role for tailored recommendations'
-  const resumeTip = profile?.career?.resume
-    ? `Update resume with ${profile?.career?.target_role || 'career'} achievements`
-    : 'Add your resume summary to improve guidance'
+  const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
+  const hasCareerData = Boolean(
+    profile?.career?.education ||
+    profile?.career?.current_skills?.length ||
+    profile?.career?.target_role ||
+    profile?.career?.experience_level ||
+    profile?.career?.career_goal,
+  )
 
   return (
     <div className="space-y-8">
@@ -52,10 +53,10 @@ export function CareerPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Career Score"
-          value={Math.max(60, Math.round((profile?.career?.current_skills?.length || 0) * 10 + 50))}
+          value={domainScores.career}
           subtitle="Overall readiness"
           icon={Target}
-          trend={{ value: 8, label: 'this quarter' }}
+          trend={hasCareerData ? { value: domainScores.career, label: 'profile completion' } : undefined}
           gradient="from-blue-500 to-indigo-500"
         />
         <MetricCard
@@ -67,7 +68,7 @@ export function CareerPage() {
         />
         <MetricCard
           title="Predicted Salary"
-          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Complete your finance profile'}
+          value={salaryPrediction.predicted ? formatCurrency(salaryPrediction.predicted) : 'Set profile' }
           subtitle={`In ${salaryPrediction.timeframe}`}
           icon={DollarSign}
           gradient="from-amber-500 to-orange-500"
@@ -84,8 +85,9 @@ export function CareerPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
           <ChartCard title="Skill Progress" description="Monthly skill growth and project count">
-            <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={progressData}>
+            {progressData.length ? (
+              <ResponsiveContainer width="100%" height={280}>
+                <BarChart data={progressData}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="month" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
                 <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
@@ -97,9 +99,12 @@ export function CareerPage() {
                   }}
                 />
                 <Bar dataKey="skills" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Skills" />
-                <Bar dataKey="projects" fill="#10b981" radius={[4, 4, 0, 0]} name="Projects" />
-              </BarChart>
-            </ResponsiveContainer>
+                  <Bar dataKey="projects" fill="#10b981" radius={[4, 4, 0, 0]} name="Projects" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyState text="No information available. Complete your profile to see skill progress." />
+            )}
           </ChartCard>
 
           <Card>
@@ -133,6 +138,7 @@ export function CareerPage() {
                   </ul>
                 </motion.div>
               ))}
+              {!roadmap.length && <EmptyState text="No information available. Complete your profile to see a roadmap." />}
             </CardContent>
           </Card>
         </div>
@@ -153,6 +159,7 @@ export function CareerPage() {
                   <Badge variant="outline" className="text-[10px] mt-1">{skill.category}</Badge>
                 </div>
               ))}
+              {!skills.length && <EmptyState text="No information available. Complete your profile to see skills." />}
             </CardContent>
           </Card>
 
@@ -170,6 +177,7 @@ export function CareerPage() {
                   <span className="text-sm">{cert}</span>
                 </div>
               ))}
+              {!certifications.length && <EmptyState text="No information available. Complete your profile to see certifications." />}
             </CardContent>
           </Card>
         </div>
@@ -178,21 +186,21 @@ export function CareerPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Current Salary"
-          value={formatCurrency(salaryPrediction.current)}
+          value={salaryPrediction.current ? formatCurrency(salaryPrediction.current) : 'No data available'}
           icon={DollarSign}
           iconColor="text-blue-500"
         />
         <StatCard
           label="Target Role"
-          value={targetRoleLabel}
-          change={targetRoleChange}
+          value="Data Scientist"
+          change="+41% growth potential"
           icon={TrendingUp}
           iconColor="text-emerald-500"
         />
         <StatCard
           label="Resume Tips"
-          value={resumeTip}
-          change={profile?.career?.resume ? 'Resume profile detected' : 'Complete your profile'}
+          value="3 suggestions"
+          change="Update ML projects section"
           icon={BookOpen}
           iconColor="text-purple-500"
         />
@@ -203,30 +211,34 @@ export function CareerPage() {
           <CardTitle className="text-base">Job Recommendations</CardTitle>
         </CardHeader>
         <CardContent>
-          {jobRecommendations.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Update your career details to receive personalized job matches.</p>
-          ) : (
-            <div className="grid gap-3 md:grid-cols-3">
-              {jobRecommendations.map((job) => (
-                <motion.div
-                  key={`${job.title}-${job.company}`}
-                  whileHover={{ y: -2 }}
-                  className="rounded-xl border p-4 transition-shadow hover:shadow-card-hover"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="font-semibold">{job.title}</h4>
-                    <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
-                      {job.match}% match
-                    </Badge>
-                  </div>
-                  <p className="text-sm text-muted-foreground">{job.company}</p>
-                  <Progress value={job.match} className="mt-3 h-1" />
-                </motion.div>
-              ))}
-            </div>
-          )}
+          <div className="grid gap-3 md:grid-cols-3">
+            {jobRecommendations.map((job) => (
+              <motion.div
+                key={job.title}
+                whileHover={{ y: -2 }}
+                className="rounded-xl border p-4 transition-shadow hover:shadow-card-hover"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold">{job.title}</h4>
+                  <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">
+                    {job.match}% match
+                  </Badge>
+                </div>
+                <p className="text-sm text-muted-foreground">{job.company}</p>
+                <Progress value={job.match} className="mt-3 h-1" />
+              </motion.div>
+            ))}
+          </div>
         </CardContent>
       </Card>
+    </div>
+  )
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground md:col-span-3">
+      {text}
     </div>
   )
 }
