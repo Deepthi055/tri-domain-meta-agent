@@ -80,32 +80,44 @@ def budget_planner(
     breakdown: list[dict] = []
     overspending: list[str] = []
 
-    for category, amount in expenses.items():
-        if amount < 0:
-            # Negative expense is a data error — skip gracefully
-            continue
+    if use_rule_limits and len(expenses) > 1:
+        for category, amount in expenses.items():
+            if amount < 0:
+                # Negative expense is a data error — skip gracefully
+                continue
 
-        share_pct = round((amount / income) * 100, 1)
-        recommended_pct = None
-        status = "recorded"
-        if use_rule_limits:
-            recommended_pct = round(
-                BUDGET_LIMITS.get(category.lower(), 0.10) * 100, 1
-            )
-            over = share_pct > recommended_pct
-            status = "over budget" if over else "within budget"
-            if over:
-                overspending.append(category)
+            share_pct = round((amount / income) * 100, 1)
+            recommended_pct = None
+            status = "recorded"
+            if use_rule_limits:
+                recommended_pct = round(
+                    BUDGET_LIMITS.get(category.lower(), 0.10) * 100, 1
+                )
+                over = share_pct > recommended_pct
+                status = "over budget" if over else "within budget"
+                if over:
+                    overspending.append(category)
 
-        entry: dict[str, Any] = {
-            "category":  category,
-            "amount":    round(amount, 2),
-            "share_pct": share_pct,
-            "status":    status,
-        }
-        if recommended_pct is not None:
-            entry["recommended_pct"] = recommended_pct
-        breakdown.append(entry)
+            entry: dict[str, Any] = {
+                "category":  category,
+                "amount":    round(amount, 2),
+                "share_pct": share_pct,
+                "status":    status,
+            }
+            if recommended_pct is not None:
+                entry["recommended_pct"] = recommended_pct
+            breakdown.append(entry)
+    else:
+        for category, amount in expenses.items():
+            if amount < 0:
+                continue
+            share_pct = round((amount / income) * 100, 1)
+            breakdown.append({
+                "category": category,
+                "amount": round(amount, 2),
+                "share_pct": share_pct,
+                "status": "recorded",
+            })
 
     if use_rule_limits:
         breakdown.sort(
@@ -127,9 +139,9 @@ def budget_planner(
         goal_diff = round(disposable - float(savings_goal), 2)
 
     summary = (
-        f"You spend ₹{round(total_expenses):,} of your ₹{round(income):,} income "
-        f"({round(100 - savings_rate, 1)}% expense ratio). "
-        f"Remaining after expenses: ₹{round(disposable):,}."
+        f"Monthly income: ₹{round(income):,}. "
+        f"Monthly expenses: ₹{round(total_expenses):,}. "
+        f"Remaining amount: ₹{round(disposable):,}."
     )
     if savings_goal is not None and savings_goal > 0:
         if goal_diff is not None and goal_diff >= 0:
@@ -161,16 +173,21 @@ def budget_planner(
     if savings_goal is not None and savings_goal > 0 and goal_diff is not None:
         if goal_diff >= 0:
             recommendation = (
-                f"After expenses you have ₹{disposable:,.0f}/month remaining, "
-                f"which meets your ₹{float(savings_goal):,.0f} savings goal "
-                f"(surplus ₹{goal_diff:,.0f})."
+                f"Monthly income: ₹{income:,.0f}. Monthly expenses: ₹{total_expenses:,.0f}. "
+                f"Remaining amount: ₹{disposable:,.0f}. Savings goal: ₹{float(savings_goal):,.0f}. "
+                f"Difference: ₹{goal_diff:,.0f}."
             )
         else:
             recommendation = (
-                f"After expenses you have ₹{disposable:,.0f}/month remaining, "
-                f"but your savings goal is ₹{float(savings_goal):,.0f}. "
-                f"Close the ₹{abs(goal_diff):,.0f} gap by reducing expenses or increasing income."
+                f"Monthly income: ₹{income:,.0f}. Monthly expenses: ₹{total_expenses:,.0f}. "
+                f"Remaining amount: ₹{disposable:,.0f}. Savings goal: ₹{float(savings_goal):,.0f}. "
+                f"Difference: ₹{abs(goal_diff):,.0f} short."
             )
+    else:
+        recommendation = (
+            f"Monthly income: ₹{income:,.0f}. Monthly expenses: ₹{total_expenses:,.0f}. "
+            f"Remaining amount: ₹{disposable:,.0f}."
+        )
 
     return {
         "income":             round(income, 2),

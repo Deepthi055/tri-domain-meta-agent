@@ -55,7 +55,7 @@ class TestIntentDetection:
         assert finance_agent._detect_tools("Which tax regime is better for me?")[0] == "tax"
 
     def test_investment_intent(self):
-        assert finance_agent._detect_tools("How should I invest my savings in SIP?")[0] == "investment"
+        assert finance_agent._detect_tools("How should I invest my savings in SIP?")[0] == "investments"
 
     def test_savings_intent(self):
         assert finance_agent._detect_tools("How long to reach my savings goal?")[0] == "savings"
@@ -75,14 +75,43 @@ class TestBudgetPipeline:
         text = result["recommendation"]
         assert result["tools_used"] == ["budget"]
         assert "Profile Data Used" in text
-        assert "Selected Tool" in text
+        assert "Tool Selected" in text
         assert "Budget Planner" in text
         assert "Calculation Steps" in text
-        assert "Final Recommendation" in text
-        assert "Confidence" in text
+        assert "Recommendation" in text
+        assert "Confidence Level" in text
         assert "₹" in text
         assert "Monthly Income" in text or "80,000" in text
         assert result["tool_outputs"]["budget"].get("remaining_amount") == 25_000.0
+
+    def test_budget_prompt_uses_budget_planner_only(self):
+        result = finance_agent.run(_req(
+            query="Create a monthly budget using my profile.",
+            monthly_income=35_000.0,
+            monthly_expenses=28_000.0,
+            savings_goal=10_000.0,
+            financial_goals="Save for a down payment",
+        ))
+        text = result["recommendation"]
+
+        assert result["tools_used"] == ["budget"]
+        assert "budget" in result["tool_outputs"]
+        assert result["tool_outputs"]["budget"].get("remaining_amount") == 7_000.0
+        assert "Budget Planner" in text
+        assert "Calculation Steps" in text
+        assert "Monthly Income" in text
+        assert "Monthly Expenses" in text
+        assert "Savings Goal" in text
+        assert "Financial Goal" in text
+        assert "₹35,000" in text or "₹35,000" in text
+        assert "₹28,000" in text or "₹28,000" in text
+        assert "₹7,000" in text or "₹7,000" in text
+        assert "50-30-20" not in text
+        assert "diabetes" not in text.lower()
+        assert "sedentary" not in text.lower()
+        assert "sleep" not in text.lower()
+        assert "BMI" not in text
+        assert "percentage" not in text.lower()
 
     def test_missing_budget_fields(self):
         result = finance_agent.run(_req(
@@ -186,7 +215,7 @@ class TestInvestmentPipeline:
         out = result["tool_outputs"]["investment"]
         assert "target_allocation" in out
         assert "moderate" in out["recommendation"].lower()
-        assert result["tools_used"] == ["investment"]
+        assert result["tools_used"] == ["investments"]
 
     def test_missing_investment_experience(self):
         result = finance_agent.run(_req(

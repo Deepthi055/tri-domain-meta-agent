@@ -51,8 +51,9 @@ logger = logging.getLogger("finance_agent")
 TOOL_LABELS: dict[str, str] = {
     "budget":             "Budget Planner",
     "savings":            "Savings Calculator",
+    "investments":        "Investment Advisor",
     "investment":         "Investment Advisor",
-    "debt":               "Debt Management",
+    "debt":               "Debt Management Tool",
     "retirement":         "Retirement Planner",
     "tax":                "Tax Calculator",
     "financial_analysis": "Financial Analysis Tool",
@@ -68,9 +69,9 @@ _TOOL_KEYWORDS: dict[str, list[str]] = {
     "savings": [
         "savings goal", "saving goal", "how much to save", "how long to save",
         "saving", "how long", "achieve my goal", "time to goal", "months to",
-        "reach my goal", "save for", "save up", "save money",
+        "reach my goal", "save for", "save up", "save money", "save",
     ],
-    "investment": [
+    "investments": [
         "invest", "portfolio", "stock", "equity", "mutual fund", "sip",
         "asset", "allocat", "rebalanc", "ppf", "nps", "elss",
     ],
@@ -112,18 +113,21 @@ EXTENDED_PROFILE_FIELDS = [
 # Required profile fields per tool (validated before execution)
 _TOOL_REQUIRED_FIELDS: dict[str, list[str]] = {
     "budget":             ["monthly_income", "monthly_expenses"],
-    "savings":            ["monthly_income", "monthly_expenses", "savings_goal"],
-    "debt":               ["total_debt", "monthly_debt_payment"],
-    "retirement":         ["age", "monthly_income", "savings", "retirement_age", "monthly_expenses"],
+    "savings":            ["income", "expenses", "savings_goal"],
+    "debt":               ["total_debt", "monthly_repayment"],
+    "retirement":         ["age", "monthly_income", "savings", "retirement_age"],
     "tax":                ["annual_income"],
-    "investment":         ["monthly_income", "risk_tolerance", "investment_experience", "age"],
+    "investments":        ["risk_tolerance", "investment_experience", "financial_goals"],
     "financial_analysis": ["monthly_income", "monthly_expenses"],
 }
 
 _TOOL_FIELD_LABELS: dict[str, str] = {
     "monthly_income":         "Monthly income",
     "monthly_expenses":       "Monthly expenses",
+    "income":                 "Income",
+    "expenses":               "Expenses",
     "total_debt":             "Total debt",
+    "monthly_repayment":      "Current monthly repayment",
     "monthly_debt_payment":   "Current monthly repayment",
     "age":                    "Age",
     "savings_goal":           "Savings goal",
@@ -132,6 +136,7 @@ _TOOL_FIELD_LABELS: dict[str, str] = {
     "annual_income":          "Annual income",
     "risk_tolerance":         "Risk tolerance",
     "investment_experience":  "Investment experience",
+    "financial_goals":        "Financial goals",
     "portfolio":              "Portfolio values",
 }
 
@@ -281,8 +286,22 @@ def _resolve_field(request: Any, field: str) -> Any:
     """Resolve a logical required field from the request object."""
     if field == "total_debt":
         return _get_total_debt(request)
-    if field == "monthly_debt_payment":
-        val = getattr(request, "monthly_debt_payment", None)
+    if field in {"monthly_repayment", "monthly_debt_payment"}:
+        val = getattr(request, "monthly_repayment", None)
+        if val is None:
+            val = getattr(request, "monthly_debt_payment", None)
+        return float(val) if val is not None and float(val) > 0 else None
+    if field in {"income", "monthly_income"}:
+        val = getattr(request, "income", None)
+        if val is None:
+            val = getattr(request, "monthly_income", None)
+        return float(val) if val is not None and float(val) > 0 else None
+    if field in {"expenses", "monthly_expenses"}:
+        val = getattr(request, "expenses", None)
+        if val is None:
+            val = getattr(request, "monthly_expenses", None)
+        if isinstance(val, dict):
+            return float(sum(val.values())) if val else None
         return float(val) if val is not None and float(val) > 0 else None
     if field == "annual_income":
         annual = getattr(request, "annual_income", None)
@@ -301,6 +320,8 @@ def _resolve_field(request: Any, field: str) -> Any:
     if field == "retirement_age":
         val = getattr(request, "retirement_age", None)
         return int(val) if val is not None and int(val) > 0 else None
+    if field == "financial_goals":
+        return getattr(request, "financial_goals", None)
     if field == "portfolio":
         pf = _parse_portfolio(request)
         return pf if pf else None
@@ -404,6 +425,16 @@ def _format_inr(value: float | None) -> str:
     return f"₹{value:,.0f}"
 
 
+def _profile_display_label(key: str) -> str:
+    labels = {
+        "monthly_income": "Monthly Income",
+        "monthly_expenses": "Monthly Expenses",
+        "savings_goal": "Savings Goal",
+        "financial_goals": "Financial Goal",
+    }
+    return labels.get(key, key.replace("_", " ").title())
+
+
 # ── Intent detection ──────────────────────────────────────────────────────────
 
 # Tie-break order when keyword scores are equal
@@ -411,7 +442,7 @@ _TOOL_PRIORITY = [
     "debt",
     "tax",
     "retirement",
-    "investment",
+    "investments",
     "budget",
     "savings",
     "financial_analysis",
@@ -423,6 +454,39 @@ _META_PATTERNS = [
     r"what (profile|values) did you use",
 ]
 
+_BUDGET_INTENT_PATTERNS = (
+    "create a budget",
+    "create budget",
+    "monthly budget",
+    "budget plan",
+    "spending plan",
+    "budgeting",
+    "expense breakdown",
+    "budget using",
+    "budget for",
+    "monthly spending plan",
+)
+
+
+def _is_budget_query(query: str) -> bool:
+    q = query.lower()
+    if any(kw in q for kw in ("debt", "loan", "emi", "credit card", "repay", "owe")):
+        return False
+    if any(pattern in q for pattern in _BUDGET_INTENT_PATTERNS):
+        return True
+    return any(
+        kw in q for kw in (
+            "budget",
+            "monthly budget",
+            "spend",
+            "spending",
+            "expense",
+            "expenses",
+            "afford",
+            "cash flow",
+        )
+    )
+
 
 def _detect_tools(query: str) -> list[str]:
     """Return exactly one primary tool for the query."""
@@ -431,13 +495,16 @@ def _detect_tools(query: str) -> list[str]:
     if any(re.search(p, q) for p in _META_PATTERNS):
         return ["financial_analysis"]
 
+    if _is_budget_query(query):
+        return ["budget"]
+
     matched: list[str] = []
     for tool, keywords in _TOOL_KEYWORDS.items():
         if any(kw in q for kw in keywords):
             matched.append(tool)
 
     if not matched:
-        return ["financial_analysis"]
+        return ["budget"]
 
     for tool in _TOOL_PRIORITY:
         if tool in matched:
@@ -449,10 +516,15 @@ def _detect_tools(query: str) -> list[str]:
 # ── Tool runners ──────────────────────────────────────────────────────────────
 
 def _run_budget(request: Any, query: str = "") -> dict:
-    expenses = getattr(request, "expenses", None) or _parse_budget(
-        getattr(request, "budget", None),
-        getattr(request, "monthly_expenses", None),
-    )
+    explicit_expenses = getattr(request, "expenses", None)
+    if explicit_expenses:
+        expenses = explicit_expenses
+    else:
+        expenses = _parse_budget(
+            getattr(request, "budget", None),
+            getattr(request, "monthly_expenses", None),
+        )
+
     if not expenses and hasattr(request, "monthly_expenses"):
         expenses = {"total": float(request.monthly_expenses or 0)}
 
@@ -468,16 +540,29 @@ def _run_budget(request: Any, query: str = "") -> dict:
 
 def _run_savings(request: Any) -> dict:
     query = getattr(request, "query", "") or ""
+    income = _resolve_field(request, "income")
+    expenses = _resolve_field(request, "expenses")
+    savings_goal = _resolve_field(request, "savings_goal")
+    if income is None or expenses is None or savings_goal is None:
+        return {
+            "error": "Income, expenses, and savings goal are required for savings calculation.",
+            "calculation_steps": [
+                "Income = required",
+                "Expenses = required",
+                "Savings Goal = required",
+            ],
+            "recommendation": "I need your income, expenses, and savings goal to calculate time-to-goal.",
+        }
     return savings_calculator(
-        income=float(getattr(request, "monthly_income", 0)),
-        expenses=float(getattr(request, "monthly_expenses", 0)),
-        savings_goal=getattr(request, "savings_goal", None),
+        income=float(income),
+        expenses=float(expenses),
+        savings_goal=float(_resolve_field(request, "savings_goal")),
         current_savings=float(getattr(request, "current_savings", 0) or 0),
         goal_mode=_savings_goal_mode(query),
     )
 
 
-def _run_investment(request: Any, rag_context: str = "") -> dict:
+def _run_investments(request: Any, rag_context: str = "") -> dict:
     portfolio = _parse_portfolio(request) or _parse_investments(
         getattr(request, "investments", None),
         getattr(request, "monthly_income", None),
@@ -495,8 +580,28 @@ def _run_investment(request: Any, rag_context: str = "") -> dict:
 
 def _run_debt(request: Any) -> dict:
     total_debt = _get_total_debt(request)
-    monthly_payment = float(getattr(request, "monthly_debt_payment", 0) or 0)
+    monthly_payment = float(getattr(request, "monthly_repayment", 0) or getattr(request, "monthly_debt_payment", 0) or 0)
     debts = getattr(request, "debts", None) or []
+
+    if not debts and (total_debt is None or monthly_payment <= 0):
+        steps = [
+            "I don't have your debt information yet.",
+            "Please provide:",
+            "• Total debt",
+            "• Current monthly repayment",
+        ]
+        return {
+            "total_debt": total_debt,
+            "monthly_payment": monthly_payment,
+            "calculation_steps": steps,
+            "recommendation": (
+                "I don't have your debt information yet.\n"
+                "Please provide:\n"
+                "• Total debt\n"
+                "• Current monthly repayment"
+            ),
+            "summary": "Debt information is incomplete; no payoff estimate was made.",
+        }
 
     if debts:
         result = debt_management(debts=debts, monthly_payment=monthly_payment)
@@ -573,7 +678,8 @@ def _run_financial_analysis(request: Any) -> dict:
 _TOOL_RUNNERS = {
     "budget":             _run_budget,
     "savings":            _run_savings,
-    "investment":         _run_investment,
+    "investments":        _run_investments,
+    "investment":         _run_investments,
     "debt":               _run_debt,
     "retirement":         _run_retirement,
     "tax":                _run_tax,
@@ -613,7 +719,7 @@ def _build_deterministic_response(
     lines.append("Profile Data Used:")
     for key, val in profile.items():
         if val is not None:
-            label = key.replace("_", " ").title()
+            label = _profile_display_label(key)
             if isinstance(val, (int, float)) and key in ("monthly_income", "monthly_expenses", "savings_goal"):
                 lines.append(f"  {label}: {_format_inr(float(val))}")
             else:
@@ -623,7 +729,7 @@ def _build_deterministic_response(
 
     # Selected Tool
     lines.append("")
-    lines.append("Selected Tool:")
+    lines.append("Tool Selected:")
     for tool in active_tools:
         lines.append(f"  • {TOOL_LABELS.get(tool, tool)}")
 
@@ -654,7 +760,7 @@ def _build_deterministic_response(
         )
 
     lines.append("")
-    lines.append("Final Recommendation:")
+    lines.append("Recommendation:")
     lines.append(f"  {rec}")
 
     # Append secondary tool recommendations
@@ -665,7 +771,7 @@ def _build_deterministic_response(
             lines.append(f"  [{TOOL_LABELS.get(tool, tool)}] {secondary_rec}")
 
     lines.append("")
-    lines.append(f"Confidence: {confidence_label}")
+    lines.append(f"Confidence Level: {confidence_label}")
 
     return "\n".join(lines)
 
@@ -693,7 +799,7 @@ def _build_missing_tool_response(
     ]
     for key, val in profile.items():
         if val is not None:
-            label = key.replace("_", " ").title()
+            label = _profile_display_label(key)
             if isinstance(val, (int, float)) and key in (
                 "monthly_income", "monthly_expenses", "savings_goal",
             ):
@@ -709,17 +815,17 @@ def _build_missing_tool_response(
                 lines.append(f"  {label}: {val}")
     lines.append(f"  Missing fields: {', '.join(missing_labels)}")
     lines.append("")
-    lines.append("Selected Tool:")
+    lines.append("Tool Selected:")
     lines.append(f"  • {TOOL_LABELS.get(tool, tool)} (not executed — incomplete profile)")
     lines.append("")
     lines.append("Calculation Steps:")
     lines.append("  Cannot compute — required profile values are missing.")
     lines.append("")
-    lines.append("Final Recommendation:")
+    lines.append("Recommendation:")
     for line in follow_up.split("\n"):
         lines.append(f"  {line}" if line else "")
     lines.append("")
-    lines.append("Confidence: Low")
+    lines.append("Confidence Level: Low")
 
     recommendation = "\n".join(lines)
     return {
@@ -761,14 +867,14 @@ def _build_missing_profile_response(profile: dict, missing: list[str]) -> dict[s
     ]
     for key, val in profile.items():
         if val is not None:
-            label = key.replace("_", " ").title()
+            label = _profile_display_label(key)
             if isinstance(val, (int, float)) and key in ("monthly_income", "monthly_expenses", "savings_goal"):
                 lines.append(f"  {label}: {_format_inr(float(val))}")
             else:
                 lines.append(f"  {label}: {val}")
     lines.append(f"  Missing fields: {', '.join(missing)}")
     lines.append("")
-    lines.append("LangChain Tool Used:")
+    lines.append("Tool Selected:")
     lines.append("  • None (insufficient profile data)")
     lines.append("")
     lines.append("Calculation Steps:")
@@ -780,7 +886,7 @@ def _build_missing_profile_response(profile: dict, missing: list[str]) -> dict[s
         "Personalised calculations require your actual income and expenses."
     )
     lines.append("")
-    lines.append("Confidence: Low")
+    lines.append("Confidence Level: Low")
 
     recommendation = "\n".join(lines)
     return {
@@ -818,9 +924,9 @@ def _validate_grounded_response(recommendation: str, deterministic_text: str) ->
     """Reject LLM output that drops required sections or numeric grounding."""
     required_sections = (
         "Profile Data Used",
-        "Selected Tool",
-        "Final Recommendation",
-        "Confidence",
+        "Tool Selected",
+        "Recommendation",
+        "Confidence Level",
     )
     if not all(section in recommendation for section in required_sections):
         return deterministic_text
@@ -894,9 +1000,11 @@ def run(request: Any) -> dict[str, Any]:
         logger.info("[Finance] missing fields for %s: %s", primary_tool, missing_fields)
         return _build_missing_tool_response(profile, primary_tool, missing_fields, resolved_values)
 
-    # 4. RAG context (use caller-provided or fetch)
+    # 4. RAG context (budget queries must stay tool-only and avoid unrelated domain context)
     rag_context = getattr(request, "rag_context", "") or ""
-    if not rag_context and RAG_AVAILABLE:
+    if primary_tool == "budget":
+        rag_context = ""
+    elif not rag_context and RAG_AVAILABLE:
         try:
             rag_context = retrieve_as_context(query, top_k=3)
         except Exception as exc:
@@ -914,6 +1022,8 @@ def run(request: Any) -> dict[str, Any]:
             else:
                 output = runner(request)
             tool_outputs[primary_tool] = output
+            if primary_tool == "investments" and "investment" not in tool_outputs:
+                tool_outputs["investment"] = output
             logger.info(
                 "[Finance] tool=%s output=%s",
                 primary_tool,
