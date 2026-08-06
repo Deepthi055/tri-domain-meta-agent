@@ -45,7 +45,7 @@ export function DashboardPage() {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
 
-  const { data: profile } = useProfile()
+  const { data: profile, isLoading: isProfileLoading } = useProfile()
   const { data: conversations } = useChatHistory()
   const { data: memories } = useMemories()
   const { data: reports } = useReports()
@@ -83,6 +83,36 @@ export function DashboardPage() {
     if (hour < 12) return 'Good morning'
     if (hour < 17) return 'Good afternoon'
     return 'Good evening'
+  }
+
+  if (isProfileLoading) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="Dashboard" description="Loading profile..." />
+        <div className="flex justify-center py-12"><div className="loader" /></div>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="space-y-8">
+        <PageHeader
+          title="Dashboard"
+          description="Complete your profile to see personalized insights"
+          badge="Profile Needed"
+        />
+        <div className="grid gap-4">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <h3 className="text-lg font-semibold mb-2">No profile data</h3>
+              <p className="text-sm text-muted-foreground mb-4">Fill out your profile to enable personalized recommendations across Career, Health, and Finance.</p>
+              <Button variant="gradient" onClick={() => navigate(ROUTES.PROFILE)}>Complete Profile</Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -239,13 +239,18 @@ export function buildDashboardActivity(
   ]
 
   if (profile) {
-    activities.unshift({
-      id: 'profile-update',
-      type: 'profile' as const,
-      title: 'Profile updated with latest preferences',
-      domain: 'auto',
-      timestamp: profile.general?.updated_at || profile.career?.updated_at || profile.health?.updated_at || profile.finance?.updated_at || new Date().toISOString(),
-    })
+    const profileUpdatedAt =
+      profile.general?.updated_at || profile.career?.updated_at || profile.health?.updated_at || profile.finance?.updated_at
+
+    if (profileUpdatedAt) {
+      activities.unshift({
+        id: 'profile-update',
+        type: 'profile' as const,
+        title: 'Profile updated with latest preferences',
+        domain: 'auto',
+        timestamp: profileUpdatedAt,
+      })
+    }
   }
 
   return activities.slice(0, 5)

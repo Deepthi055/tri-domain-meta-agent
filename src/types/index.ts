@@ -107,6 +107,7 @@ export interface ChatResponse {
   confidence?: number | null
   memory_saved: string[]
   sources: string[]
+  messages?: Message[]
 }
 
 export interface Message {

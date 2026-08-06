@@ -26,12 +26,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useProfile } from '@/hooks'
+import { Button } from '@/components/ui/button'
+import { ROUTES } from '@/utils/constants'
 import { formatCurrency, formatPercent } from '@/utils'
 import { buildFinancePageData } from '@/utils/profileInsights'
 
 export function FinancePage() {
-  const { data: profile } = useProfile()
+  const { data: profile, isLoading: isProfileLoading } = useProfile()
+  const navigate = useNavigate()
   const financeData = useMemo(() => buildFinancePageData(profile), [profile])
   const {
     monthlyIncome,
@@ -44,6 +48,30 @@ export function FinancePage() {
     portfolio,
     investments,
   } = financeData
+
+  if (isProfileLoading) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="Finance Dashboard" description="Loading profile..." />
+        <div className="flex justify-center py-12"><div className="loader" /></div>
+      </div>
+    )
+  }
+
+  if (!profile) {
+    return (
+      <div className="space-y-8">
+        <PageHeader title="Finance Dashboard" description="Complete your profile to see financial insights" badge="Profile Needed" />
+        <Card>
+          <CardContent className="p-8 text-center">
+            <h3 className="text-lg font-semibold mb-2">No finance profile yet</h3>
+            <p className="text-sm text-muted-foreground mb-4">Add your income and expenses in the profile to view personalized budgets and recommendations.</p>
+            <Button variant="gradient" onClick={() => navigate(ROUTES.PROFILE)}>Edit Profile</Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">

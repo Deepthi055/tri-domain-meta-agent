@@ -7,7 +7,7 @@ chat request to personalize responses (see services/context_builder.py).
 """
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Column, String, Integer, Float, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, ARRAY
@@ -33,8 +33,8 @@ class UserProfile(Base):
     height_cm = Column(Float, nullable=True)
     weight_kg = Column(Float, nullable=True)
     location = Column(String(120), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="profile")
 
@@ -53,8 +53,8 @@ class CareerProfile(Base):
     career_goal = Column(String(255), nullable=True)
     preferred_roles = Column(String(255), nullable=True)
     resume = Column(String(2000), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="career_profile")
 
@@ -75,8 +75,8 @@ class HealthProfile(Base):
     workout = Column(String(120), nullable=True)
     health_goals = Column(String(255), nullable=True)
     water_intake = Column(Float, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="health_profile")
 
@@ -96,7 +96,7 @@ class FinanceProfile(Base):
     investment_experience = Column(String(50), nullable=True)  # beginner/intermediate/advanced
     financial_goals = Column(String(255), nullable=True)
     budget = Column(String(500), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="finance_profile")

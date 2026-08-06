@@ -111,8 +111,9 @@ section("4. Retirement Planner — age 28, retiring at 60")
 show(retirement_planner(
     current_age=28,
     retirement_age=60,
-    savings=150_000,           # existing PF / investments
-    monthly_contribution=8_000, # monthly SIP
+    savings=150_000,
+    monthly_contribution=8_000,
+    monthly_expenses=40_000,
 ))
 
 # Edge case — retirement age already passed
@@ -121,7 +122,7 @@ show(retirement_planner(current_age=62, retirement_age=60, savings=0, monthly_co
 
 # Edge case — no savings, no contribution
 section("4c. Retirement Planner — starting from zero")
-show(retirement_planner(current_age=35, retirement_age=60, savings=0, monthly_contribution=0))
+show(retirement_planner(current_age=35, retirement_age=60, savings=0, monthly_contribution=0, monthly_expenses=35_000))
 
 
 # ─── 5. Tax Optimizer ───────────────────────────────────────────────────────
