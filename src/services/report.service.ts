@@ -1,4 +1,5 @@
 import { api } from './api'
+import { API_BASE_URL } from '@/utils/constants'
 import type { Report, ReportCreate } from '@/types'
 
 export const reportService = {
@@ -13,12 +14,30 @@ export const reportService = {
   },
 
   async download(id: string): Promise<Blob> {
-    const res = await api.get(`/reports/${id}`, { responseType: 'blob' })
+    const token = localStorage.getItem('tridomain_access_token')
+
+    if (!token) {
+      throw new Error('Authentication token not found')
+    }
+
+    const res = await api.get(`/reports/${id}?token=${encodeURIComponent(token)}`, {
+      responseType: 'blob',
+    })
+
     return res.data
   },
 
   getDownloadUrl(id: string): string {
     const token = localStorage.getItem('tridomain_access_token')
-    return `/reports/${id}?token=${token}`
+
+    if (!token) {
+      throw new Error('Authentication token not found')
+    }
+
+    return `${API_BASE_URL}/reports/${id}?token=${encodeURIComponent(token)}`
+  },
+
+  async delete(id: string): Promise<void> {
+    await api.delete(`/reports/${id}`)
   },
 }

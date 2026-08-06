@@ -166,6 +166,14 @@ export function useCreateReport() {
   })
 }
 
+export function useDeleteReport() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => reportService.delete(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reports }),
+  })
+}
+
 export function useDomains() {
   return useQuery({
     queryKey: queryKeys.domains,
