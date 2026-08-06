@@ -21,6 +21,9 @@ Structured JSON Response
 
 from sqlalchemy.orm import Session
 
+import json
+from types import SimpleNamespace
+
 from services.context_builder import (
     build_profile_context,
     build_memory_context,
@@ -43,6 +46,71 @@ from models.profile import (
     FinanceProfile,
     HealthProfile,
 )
+import agents.finance_agent as finance_agent
+
+
+def _normalize_risk_appetite(risk: str | None) -> str | None:
+    if not risk:
+        return None
+    mapping = {
+        "low": "conservative",
+        "medium": "moderate",
+        "high": "aggressive",
+    }
+    return mapping.get(risk.lower(), risk)
+
+
+def _build_finance_request(
+    db: Session,
+    user_id: str,
+    query: str,
+    rag_context: str,
+    conversation_messages: list,
+) -> SimpleNamespace:
+    """Build a fully populated finance agent request from stored profile."""
+    general = (
+        db.query(UserProfile)
+        .filter(UserProfile.user_id == user_id)
+        .first()
+    )
+    finance = (
+        db.query(FinanceProfile)
+        .filter(FinanceProfile.user_id == user_id)
+        .first()
+    )
+
+    req = SimpleNamespace()
+    req.user_id = user_id
+    req.query = query
+    req.rag_context = rag_context
+    req.conversation_messages = conversation_messages
+
+    if general:
+        req.age = general.age
+
+    if finance:
+        req.monthly_income = finance.monthly_income
+        req.monthly_expenses = finance.monthly_expenses
+        req.savings_goal = finance.savings_goal
+        req.investments = finance.investments
+        req.investment_experience = finance.investment_experience
+        req.financial_goals = finance.financial_goals
+        req.budget = finance.budget
+        req.risk_tolerance = _normalize_risk_appetite(finance.risk_appetite)
+
+        # Parse categorized expenses from budget field
+        if finance.budget:
+            try:
+                parsed = json.loads(finance.budget)
+                if isinstance(parsed, dict):
+                    req.expenses = {k: float(v) for k, v in parsed.items()}
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+
+        if not getattr(req, "expenses", None) and finance.monthly_expenses:
+            req.expenses = {"total": float(finance.monthly_expenses)}
+
+    return req
 
 
 SYSTEM_PROMPTS = {
@@ -283,6 +351,30 @@ USER QUESTION
 {query}
 """
 
+    # Finance always uses the tool pipeline — never fall back to generic LLM advice
+    if domain == "finance":
+        req = _build_finance_request(
+            db, user_id, query, rag_context, conversation_messages,
+        )
+        try:
+            response = finance_agent.run(req)
+            response["sources"] = list(set(sources))
+            return response
+        except Exception as exc:
+            print(f"[Finance Agent] run failed: {exc}")
+            return {
+                "recommendation": (
+                    "Finance analysis could not be completed. "
+                    f"Error: {exc}. Please ensure your finance profile is complete and try again."
+                ),
+                "reason": str(exc),
+                "confidence": 0.0,
+                "confidence_level": "Low",
+                "sources": list(set(sources)),
+                "tools_used": [],
+            }
+
+    # Fallback LLM path (career/health/general only)
     response = call_llm_json(
         system_prompt=SYSTEM_PROMPTS[domain],
         user_prompt=final_prompt,

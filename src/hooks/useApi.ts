@@ -141,9 +141,12 @@ export function useSendChat() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (data: ChatRequest) => chatService.send(data),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: queryKeys.chatHistory })
       qc.invalidateQueries({ queryKey: queryKeys.memories() })
+      if (variables.conversation_id) {
+        qc.invalidateQueries({ queryKey: queryKeys.conversation(variables.conversation_id) })
+      }
     },
   })
 }

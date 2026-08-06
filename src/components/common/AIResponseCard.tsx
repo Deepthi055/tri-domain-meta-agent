@@ -17,7 +17,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { cn, formatDateTime } from '@/utils'
+import { cn, formatRelativeDate } from '@/utils'
 import { TypingIndicator } from '@/components/common/TypingIndicator'
 
 interface AIResponseCardProps {
@@ -105,7 +105,7 @@ export function AIResponseCard({
               </Badge>
             )}
             {timestamp && (
-              <span className="text-[10px] text-muted-foreground">{formatDateTime(timestamp)}</span>
+              <span className="text-[10px] text-muted-foreground">{formatRelativeDate(timestamp)}</span>
             )}
 
             <div className="flex items-center gap-0.5 ml-auto">

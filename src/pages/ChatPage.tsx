@@ -210,19 +210,34 @@ export function ChatPage() {
         })
         if (!conversationId) setConversationId(res.conversation_id)
 
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: crypto.randomUUID(),
-            role: 'assistant',
-            content: res.answer,
-            timestamp: new Date().toISOString(),
-            domain: res.domain,
-            confidence: res.confidence,
-            reason: res.reason,
-            sources: res.sources,
-          },
-        ])
+        if (res.messages?.length) {
+          setMessages(
+            res.messages.map((m) => ({
+              id: m.id,
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+              timestamp: m.timestamp,
+              domain: m.role === 'assistant' ? res.domain : undefined,
+              confidence: m.role === 'assistant' ? res.confidence : undefined,
+              reason: m.role === 'assistant' ? res.reason : undefined,
+              sources: m.role === 'assistant' ? res.sources : undefined,
+            }))
+          )
+        } else {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: res.answer,
+              timestamp: new Date().toISOString(),
+              domain: res.domain,
+              confidence: res.confidence,
+              reason: res.reason,
+              sources: res.sources,
+            },
+          ])
+        }
       }
     } catch (err) {
       toast.error(getErrorMessage(err))

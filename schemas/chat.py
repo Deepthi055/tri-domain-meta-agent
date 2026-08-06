@@ -2,7 +2,7 @@
 app/schemas/chat.py
 """
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 
@@ -28,8 +28,13 @@ class ChatResponse(BaseModel):
     answer: str
     reason: Optional[str] = None
     confidence: Optional[float] = None
+    confidence_level: Optional[str] = None
     memory_saved: List[str] = []
-    sources: List[str] = []  # RAG-retrieved snippet titles used for this answer
+    sources: List[str] = []
+    tools_used: List[str] = []
+    tool_outputs: Optional[Dict[str, Any]] = None
+    explainability: Optional[Dict[str, Any]] = None
+    messages: List[MessageOut] = []
 
 
 class ConversationOut(BaseModel):

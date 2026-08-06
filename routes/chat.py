@@ -84,7 +84,10 @@ async def chat(
     # 6. Save assistant reply
     save_message(db, conversation.id, role="assistant", content=answer)
 
-    # 7. Extract + save long-term memory from the user's message (best-effort)
+    # 7. Load the full conversation history one final time so the client can use backend timestamps
+    history = get_conversation_history(db, conversation.id)
+
+    # 8. Extract + save long-term memory from the user's message (best-effort)
     memory_saved = []
     try:
         memory = extract_and_save_memory(db, current_user.id, request.query)
@@ -99,8 +102,13 @@ async def chat(
         answer=answer,
         reason=agent_result.get("reason"),
         confidence=agent_result.get("confidence"),
+        confidence_level=agent_result.get("confidence_level"),
         memory_saved=memory_saved,
         sources=agent_result.get("sources", []),
+        tools_used=agent_result.get("tools_used", []),
+        tool_outputs=agent_result.get("tool_outputs"),
+        explainability=agent_result.get("explainability"),
+        messages=history,
     )
 
 

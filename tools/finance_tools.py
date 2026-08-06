@@ -131,7 +131,282 @@ def budget_planner(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 2. Investment Analysis Tool
+# 2. Savings Calculator Tool
+# ─────────────────────────────────────────────────────────────────────────────
+
+def savings_calculator(
+    income: float,
+    expenses: float,
+    savings_goal: float | None = None,
+    current_savings: float = 0,
+    goal_mode: str = "monthly",
+) -> dict[str, Any]:
+    """
+    Compute monthly savings, savings rate, and time-to-goal with step-by-step math.
+
+    Args:
+        income:          Monthly gross income (₹).
+        expenses:        Total monthly expenses (₹).
+        savings_goal:    Target amount (₹). Interpretation depends on goal_mode.
+        current_savings: Amount already saved toward a corpus goal (₹).
+        goal_mode:       "monthly" = savings_goal is monthly savings target;
+                         "corpus" = savings_goal is total amount to accumulate.
+
+    Returns:
+        Structured result with calculation_steps list and summary.
+    """
+    steps: list[str] = []
+
+    if income <= 0:
+        return {"error": "Income must be greater than zero.", "income": income}
+
+    monthly_savings = round(income - expenses, 2)
+    steps.append(f"Income = ₹{income:,.0f}")
+    steps.append(f"Expenses = ₹{expenses:,.0f}")
+    steps.append("")
+    steps.append("Available Savings")
+    steps.append(f"= ₹{income:,.0f} − ₹{expenses:,.0f}")
+    steps.append(f"= ₹{monthly_savings:,.0f}")
+
+    savings_rate = round((monthly_savings / income) * 100, 1) if income > 0 else 0.0
+    steps.append("")
+    steps.append(f"Savings Rate = ({monthly_savings:,.0f} / {income:,.0f}) × 100 = {savings_rate}%")
+
+    remaining = None
+    months_to_goal = None
+    shortfall = None
+
+    if savings_goal is not None and savings_goal > 0:
+        if goal_mode == "corpus":
+            remaining = round(max(0.0, float(savings_goal) - float(current_savings)), 2)
+            steps.append("")
+            steps.append(f"Savings Goal (corpus) = ₹{savings_goal:,.0f}")
+            if current_savings > 0:
+                steps.append(f"Current Savings = ₹{current_savings:,.0f}")
+                steps.append(f"Remaining = ₹{savings_goal:,.0f} − ₹{current_savings:,.0f} = ₹{remaining:,.0f}")
+            else:
+                steps.append(f"Remaining = ₹{remaining:,.0f}")
+
+            if monthly_savings > 0 and remaining > 0:
+                import math
+                months_to_goal = math.ceil(remaining / monthly_savings)
+                steps.append("")
+                steps.append("Time to Goal")
+                steps.append(f"= ₹{remaining:,.0f} ÷ ₹{monthly_savings:,.0f}/month")
+                steps.append(f"= {months_to_goal} months (~{round(months_to_goal / 12, 1)} years)")
+            elif remaining == 0:
+                months_to_goal = 0
+                steps.append("")
+                steps.append("Goal already achieved.")
+            elif monthly_savings <= 0:
+                shortfall = remaining
+                steps.append("")
+                steps.append(f"Shortfall = ₹{remaining:,.0f} (no monthly surplus to allocate)")
+        else:
+            # Monthly savings target
+            steps.append("")
+            steps.append(f"Savings Goal (monthly target) = ₹{savings_goal:,.0f}")
+            if monthly_savings >= savings_goal:
+                steps.append(f"Current monthly savings (₹{monthly_savings:,.0f}) meet or exceed the target.")
+            else:
+                shortfall = round(float(savings_goal) - monthly_savings, 2)
+                steps.append("")
+                steps.append("Shortfall")
+                steps.append(f"= ₹{savings_goal:,.0f} − ₹{monthly_savings:,.0f}")
+                steps.append(f"= ₹{shortfall:,.0f}")
+
+    recommendation_parts: list[str] = []
+    if monthly_savings < 0:
+        recommendation_parts.append(
+            f"You are overspending by ₹{abs(monthly_savings):,.0f}/month. "
+            f"Reduce expenses by at least ₹{abs(monthly_savings):,.0f} to break even."
+        )
+    elif savings_goal and shortfall and shortfall > 0:
+        recommendation_parts.append(
+            f"Your current monthly savings are ₹{monthly_savings:,.0f} while your "
+            f"target is ₹{savings_goal:,.0f}. Increase savings by "
+            f"₹{shortfall:,.0f}/month or reduce expenses accordingly."
+        )
+    elif months_to_goal is not None and months_to_goal > 0:
+        recommendation_parts.append(
+            f"At ₹{monthly_savings:,.0f}/month, you will reach your "
+            f"₹{savings_goal:,.0f} goal in {months_to_goal} months."
+        )
+    elif savings_rate >= 20:
+        recommendation_parts.append(
+            f"Your savings rate of {savings_rate}% exceeds the recommended 20% threshold."
+        )
+    else:
+        needed = round(income * 0.20 - monthly_savings, 2)
+        recommendation_parts.append(
+            f"Your savings rate is {savings_rate}%. To reach the 20% benchmark, "
+            f"save ₹{needed:,.0f} more per month (target: ₹{round(income * 0.20, 2):,.0f}/month)."
+        )
+
+    return {
+        "income":              round(income, 2),
+        "expenses":            round(expenses, 2),
+        "monthly_savings":     monthly_savings,
+        "savings_rate_pct":    savings_rate,
+        "savings_goal":        savings_goal,
+        "current_savings":     round(current_savings, 2),
+        "remaining_to_goal":   remaining,
+        "months_to_goal":      months_to_goal,
+        "shortfall":           shortfall,
+        "calculation_steps":   steps,
+        "recommendation":      " ".join(recommendation_parts),
+        "summary": (
+            f"Monthly savings: ₹{monthly_savings:,.0f} ({savings_rate}% rate)."
+            + (f" Time to ₹{savings_goal:,.0f} goal: {months_to_goal} months." if months_to_goal else "")
+        ),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 3. Financial Analysis Tool
+# ─────────────────────────────────────────────────────────────────────────────
+
+def financial_analysis(
+    income: float,
+    expenses: float,
+    savings_goal: float | None = None,
+    risk_tolerance: str = "moderate",
+    investment_experience: str = "beginner",
+    financial_goals: str | None = None,
+) -> dict[str, Any]:
+    """
+    Assess financial strengths and weaknesses from profile values.
+
+    Returns strengths, weaknesses, health_score, and personalised recommendations.
+    """
+    if income <= 0:
+        return {"error": "Income must be greater than zero.", "income": income}
+
+    monthly_savings = round(income - expenses, 2)
+    savings_rate = round((monthly_savings / income) * 100, 1) if income > 0 else 0.0
+    expense_ratio = round((expenses / income) * 100, 1)
+
+    strengths: list[str] = []
+    weaknesses: list[str] = []
+    steps: list[str] = []
+
+    steps.append(f"Income = ₹{income:,.0f}")
+    steps.append(f"Expenses = ₹{expenses:,.0f}")
+    steps.append(f"Monthly Surplus = ₹{income:,.0f} − ₹{expenses:,.0f} = ₹{monthly_savings:,.0f}")
+    steps.append(f"Savings Rate = {savings_rate}%")
+    steps.append(f"Expense Ratio = {expense_ratio}%")
+
+    # Savings rate assessment
+    if savings_rate >= 20:
+        strengths.append(f"Healthy savings rate of {savings_rate}% (≥ 20% benchmark)")
+    elif savings_rate >= 10:
+        weaknesses.append(
+            f"Savings rate of {savings_rate}% is below the 20% benchmark — "
+            f"need ₹{round(income * 0.20 - monthly_savings, 2):,.0f} more/month"
+        )
+    else:
+        weaknesses.append(
+            f"Critical savings rate of {savings_rate}% — "
+            f"only ₹{monthly_savings:,.0f}/month saved from ₹{income:,.0f} income"
+        )
+
+    # Expense ratio
+    if expense_ratio <= 70:
+        strengths.append(f"Controlled expense ratio at {expense_ratio}% of income")
+    elif expense_ratio <= 85:
+        weaknesses.append(f"Expenses consume {expense_ratio}% of income — limited room for goals")
+    else:
+        weaknesses.append(
+            f"Expenses at {expense_ratio}% exceed income capacity — "
+            f"deficit of ₹{abs(monthly_savings):,.0f}/month"
+        )
+
+    # Emergency fund (3–6 months expenses)
+    emergency_target = round(expenses * 3, 2)
+    steps.append(f"Emergency Fund Target (3× expenses) = ₹{emergency_target:,.0f}")
+    if monthly_savings > 0:
+        months_to_emergency = round(emergency_target / monthly_savings, 1)
+        if months_to_emergency <= 12:
+            strengths.append(
+                f"Can build 3-month emergency fund (₹{emergency_target:,.0f}) in {months_to_emergency} months"
+            )
+        else:
+            weaknesses.append(
+                f"3-month emergency fund (₹{emergency_target:,.0f}) would take {months_to_emergency} months at current savings"
+            )
+
+    # Savings goal progress
+    if savings_goal and savings_goal > 0:
+        steps.append(f"Savings Goal = ₹{savings_goal:,.0f}")
+        if monthly_savings >= savings_goal:
+            strengths.append(f"Monthly surplus (₹{monthly_savings:,.0f}) meets or exceeds savings goal")
+        else:
+            gap = round(savings_goal - monthly_savings, 2)
+            weaknesses.append(
+                f"Monthly savings (₹{monthly_savings:,.0f}) fall ₹{gap:,.0f} short of "
+                f"₹{savings_goal:,.0f} goal"
+            )
+
+    # Risk / experience alignment
+    risk = risk_tolerance.lower()
+    exp = investment_experience.lower()
+    if risk in ("aggressive", "high") and exp in ("beginner",):
+        weaknesses.append(
+            f"Risk appetite ({risk_tolerance}) exceeds experience level ({investment_experience}) — "
+            "consider starting with balanced funds"
+        )
+    elif risk in ("conservative", "low") and exp in ("advanced", "intermediate"):
+        strengths.append(
+            f"Conservative risk profile aligns with {investment_experience} experience"
+        )
+
+    if financial_goals:
+        strengths.append(f"Defined financial goals: {financial_goals}")
+
+    # Health score (0–100)
+    score = 50
+    score += min(25, savings_rate)
+    score -= max(0, expense_ratio - 70)
+    score += len(strengths) * 5
+    score -= len(weaknesses) * 5
+    score = max(0, min(100, round(score)))
+
+    if score >= 75:
+        health_status = "strong"
+    elif score >= 50:
+        health_status = "moderate"
+    else:
+        health_status = "needs improvement"
+
+    rec_parts: list[str] = []
+    if weaknesses:
+        top = weaknesses[0]
+        rec_parts.append(f"Priority: {top}")
+    if savings_rate < 20 and monthly_savings > 0:
+        needed = round(income * 0.20 - monthly_savings, 2)
+        rec_parts.append(
+            f"Increase monthly savings by ₹{needed:,.0f} to reach the 20% savings benchmark."
+        )
+
+    return {
+        "health_score":        score,
+        "health_status":       health_status,
+        "monthly_savings":     monthly_savings,
+        "savings_rate_pct":    savings_rate,
+        "expense_ratio_pct":   expense_ratio,
+        "strengths":           strengths,
+        "weaknesses":          weaknesses,
+        "calculation_steps":   steps,
+        "recommendation":      " ".join(rec_parts) if rec_parts else "Your financial profile is well-balanced.",
+        "summary": (
+            f"Financial health score: {score}/100 ({health_status}). "
+            f"{len(strengths)} strength(s), {len(weaknesses)} area(s) to improve."
+        ),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 4. Investment Analysis Tool
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Target allocation bands by risk profile and age bracket

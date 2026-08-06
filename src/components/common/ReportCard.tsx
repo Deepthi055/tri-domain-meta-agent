@@ -3,7 +3,7 @@ import { Download, FileText, Eye } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { formatDate } from '@/utils'
+import { formatRelativeDate } from '@/utils'
 import type { Report } from '@/types'
 
 interface ReportCardProps {
@@ -40,7 +40,7 @@ export function ReportCard({ report, onDownload, onPreview, status = 'ready' }: 
                 )}
               </div>
               <p className="text-xs text-muted-foreground mb-3">
-                Generated {formatDate(report.generated_at)}
+                Generated {formatRelativeDate(report.generated_at)}
               </p>
               <div className="flex items-center gap-2">
                 <Badge
