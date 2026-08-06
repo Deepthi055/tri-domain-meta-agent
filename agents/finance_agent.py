@@ -66,8 +66,9 @@ _TOOL_KEYWORDS: dict[str, list[str]] = {
         "create a budget", "spending",
     ],
     "savings": [
-        "savings goal", "save", "saving", "how long", "achieve my goal",
-        "time to goal", "months to", "reach my goal",
+        "savings goal", "saving goal", "how much to save", "how long to save",
+        "saving", "how long", "achieve my goal", "time to goal", "months to",
+        "reach my goal", "save for", "save up", "save money",
     ],
     "investment": [
         "invest", "portfolio", "stock", "equity", "mutual fund", "sip",
@@ -78,8 +79,8 @@ _TOOL_KEYWORDS: dict[str, list[str]] = {
         "owe", "pay off", "liability",
     ],
     "retirement": [
-        "retire", "pension", "corpus", "old age", "when can i retire",
-        "epf", "retirement age",
+        "retire", "retirement", "pension", "corpus", "old age",
+        "when can i retire", "epf", "retirement age", "save for retirement",
     ],
     "tax": [
         "tax", "itr", "deduction", "80c", "80d", "regime", "tds",
@@ -107,6 +108,56 @@ EXTENDED_PROFILE_FIELDS = [
     "financial_goals",
     "investments",
 ]
+
+# Required profile fields per tool (validated before execution)
+_TOOL_REQUIRED_FIELDS: dict[str, list[str]] = {
+    "budget":             ["monthly_income", "monthly_expenses"],
+    "savings":            ["monthly_income", "monthly_expenses"],
+    "debt":               ["total_debt", "monthly_debt_payment"],
+    "retirement":         ["age", "monthly_expenses"],
+    "tax":                ["monthly_income"],
+    "investment":         ["age", "risk_tolerance"],
+    "financial_analysis": ["monthly_income", "monthly_expenses"],
+}
+
+_TOOL_FIELD_LABELS: dict[str, str] = {
+    "monthly_income":       "Monthly income",
+    "monthly_expenses":     "Monthly expenses",
+    "total_debt":           "Total debt",
+    "monthly_debt_payment": "Current monthly repayment",
+    "age":                  "Age",
+    "savings_goal":         "Savings goal",
+    "risk_tolerance":       "Risk tolerance",
+    "portfolio":            "Portfolio values",
+}
+
+_MISSING_FIELD_MESSAGES: dict[str, str] = {
+    "debt": (
+        "I don't have your debt information yet.\n"
+        "Please provide:\n"
+        "• Total debt\n"
+        "• Current monthly repayment"
+    ),
+    "retirement": (
+        "I need more information to estimate retirement.\n"
+        "Please provide:\n"
+        "• Your age\n"
+        "• Monthly expenses\n"
+        "• Monthly retirement contribution (optional: current retirement savings)"
+    ),
+    "investment": (
+        "I need your investment profile to give allocation advice.\n"
+        "Please provide:\n"
+        "• Age\n"
+        "• Risk tolerance\n"
+        "• Current portfolio values (equity, debt, gold, cash)"
+    ),
+    "savings": (
+        "I need your savings goal to calculate time-to-goal.\n"
+        "Please provide:\n"
+        "• Savings goal amount"
+    ),
+}
 
 LLM_FORMATTER_PROMPT = """You are a finance response formatter inside the TriDomain AI system.
 
@@ -153,30 +204,87 @@ def _parse_budget(budget_str: str | None, monthly_expenses: float | None) -> dic
                 return {k: float(v) for k, v in parsed.items()}
         except (json.JSONDecodeError, ValueError, TypeError):
             pass
-        # Plain-text budget — treat as single category
-        return {"budget_plan": float(monthly_expenses or 0)}
     if monthly_expenses:
         return {"total": float(monthly_expenses)}
     return {}
 
 
-def _parse_investments(investments_str: str | None, monthly_income: float | None) -> dict[str, float]:
-    """Estimate portfolio from investments text field."""
-    if not investments_str:
-        return {}
-    text = investments_str.lower()
-    portfolio: dict[str, float] = {}
-    # Rough monthly SIP proxy for portfolio estimation
-    base = float(monthly_income or 0) * 12 * 2  # 2 years of income as rough corpus
-    if any(k in text for k in ("sip", "mutual fund", "equity", "stock")):
-        portfolio["equity"] = base * 0.6
-    if any(k in text for k in ("ppf", "fd", "debt", "bond")):
-        portfolio["debt"] = base * 0.25
-    if "gold" in text:
-        portfolio["gold"] = base * 0.10
-    if "cash" in text or not portfolio:
-        portfolio.setdefault("cash", base * 0.05 if portfolio else 0)
-    return portfolio
+def _parse_portfolio(request: Any) -> dict[str, float]:
+    """Return portfolio only when explicit values are provided — never estimate."""
+    portfolio = getattr(request, "portfolio", None)
+    if isinstance(portfolio, dict) and portfolio:
+        return {k: float(v) for k, v in portfolio.items() if v is not None}
+    return {}
+
+
+def _savings_goal_mode(query: str) -> str:
+    """Corpus goal for time-to-goal queries; monthly target otherwise."""
+    q = query.lower()
+    if any(kw in q for kw in ("how long", "time to", "months to", "achieve my goal", "reach my goal")):
+        return "corpus"
+    return "monthly"
+
+
+def _get_total_debt(request: Any) -> float | None:
+    """Resolve total debt from explicit debts list or total_debt field."""
+    total_debt = getattr(request, "total_debt", None)
+    if total_debt is not None and float(total_debt) > 0:
+        return float(total_debt)
+    debts = getattr(request, "debts", None) or []
+    if debts:
+        return sum(float(d.get("balance", 0) or 0) for d in debts)
+    return None
+
+
+def _wants_50_30_20_rule(query: str) -> bool:
+    q = query.lower()
+    return any(p in q for p in ("50-30-20", "50/30/20", "503020", "50 30 20", "fifty-thirty-twenty"))
+
+
+def _resolve_field(request: Any, field: str) -> Any:
+    """Resolve a logical required field from the request object."""
+    if field == "total_debt":
+        return _get_total_debt(request)
+    if field == "monthly_debt_payment":
+        val = getattr(request, "monthly_debt_payment", None)
+        return float(val) if val is not None and float(val) > 0 else None
+    if field == "portfolio":
+        pf = _parse_portfolio(request)
+        return pf if pf else None
+    if field == "risk_tolerance":
+        return getattr(request, "risk_tolerance", None) or getattr(request, "risk_appetite", None)
+    return getattr(request, field, None)
+
+
+def _validate_tool_fields(
+    tool: str,
+    request: Any,
+    query: str,
+) -> tuple[list[str], dict[str, Any]]:
+    """
+    Validate tool-specific required fields.
+    Returns (missing_field_keys, resolved_values_used).
+    """
+    required = list(_TOOL_REQUIRED_FIELDS.get(tool, []))
+    if tool == "savings" and _savings_goal_mode(query) == "corpus":
+        if "savings_goal" not in required:
+            required.append("savings_goal")
+
+    missing: list[str] = []
+    values: dict[str, Any] = {}
+
+    for field in required:
+        val = _resolve_field(request, field)
+        values[field] = val
+        if val is None:
+            missing.append(field)
+        elif isinstance(val, (int, float)) and val <= 0 and field not in ("monthly_debt_payment",):
+            if field == "age":
+                missing.append(field)
+            elif field not in ("savings_goal", "monthly_debt_payment"):
+                missing.append(field)
+
+    return missing, values
 
 
 def _load_profile_from_db(user_id: str, request: Any) -> None:
@@ -243,14 +351,14 @@ def _format_inr(value: float | None) -> str:
 
 # ── Intent detection ──────────────────────────────────────────────────────────
 
-# Priority when multiple intent keywords match (first wins)
+# Tie-break order when keyword scores are equal
 _TOOL_PRIORITY = [
+    "debt",
+    "tax",
+    "retirement",
+    "investment",
     "budget",
     "savings",
-    "debt",
-    "retirement",
-    "tax",
-    "investment",
     "financial_analysis",
 ]
 

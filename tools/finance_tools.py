@@ -30,6 +30,7 @@ BUDGET_LIMITS: dict[str, float] = {
 def budget_planner(
     income: float,
     expenses: dict[str, float],
+    use_rule_limits: bool = False,
 ) -> dict[str, Any]:
     """
     Analyse monthly income vs categorised expenses.
@@ -83,25 +84,35 @@ def budget_planner(
             # Negative expense is a data error — skip gracefully
             continue
 
-        share_pct       = round((amount / income) * 100, 1)
-        recommended_pct = round(
-            BUDGET_LIMITS.get(category.lower(), 0.10) * 100, 1
+        share_pct = round((amount / income) * 100, 1)
+        recommended_pct = None
+        status = "recorded"
+        if use_rule_limits:
+            recommended_pct = round(
+                BUDGET_LIMITS.get(category.lower(), 0.10) * 100, 1
+            )
+            over = share_pct > recommended_pct
+            status = "over budget" if over else "within budget"
+            if over:
+                overspending.append(category)
+
+        entry: dict[str, Any] = {
+            "category":  category,
+            "amount":    round(amount, 2),
+            "share_pct": share_pct,
+            "status":    status,
+        }
+        if recommended_pct is not None:
+            entry["recommended_pct"] = recommended_pct
+        breakdown.append(entry)
+
+    if use_rule_limits:
+        breakdown.sort(
+            key=lambda x: x["share_pct"] - x.get("recommended_pct", 0),
+            reverse=True,
         )
-        over = share_pct > recommended_pct
-
-        if over:
-            overspending.append(category)
-
-        breakdown.append({
-            "category":         category,
-            "amount":           round(amount, 2),
-            "share_pct":        share_pct,
-            "recommended_pct":  recommended_pct,
-            "status":           "over budget" if over else "within budget",
-        })
-
-    # Sort: worst offenders first
-    breakdown.sort(key=lambda x: x["share_pct"] - x["recommended_pct"], reverse=True)
+    else:
+        breakdown.sort(key=lambda x: x["share_pct"], reverse=True)
 
     if savings_rate >= 20:
         savings_status = "healthy"
@@ -115,7 +126,7 @@ def budget_planner(
         f"({round(100 - savings_rate, 1)}% expense ratio). "
         f"Savings rate is {round(savings_rate, 1)}% — {savings_status}."
     )
-    if overspending:
+    if use_rule_limits and overspending:
         summary += f" Overspending in: {', '.join(overspending)}."
 
     return {
@@ -140,6 +151,7 @@ def savings_calculator(
     savings_goal: float | None = None,
     current_savings: float = 0,
     goal_mode: str = "monthly",
+    include_benchmark: bool = False,
 ) -> dict[str, Any]:
     """
     Compute monthly savings, savings rate, and time-to-goal with step-by-step math.
@@ -232,15 +244,19 @@ def savings_calculator(
             f"At ₹{monthly_savings:,.0f}/month, you will reach your "
             f"₹{savings_goal:,.0f} goal in {months_to_goal} months."
         )
-    elif savings_rate >= 20:
+    elif include_benchmark and savings_rate >= 20:
         recommendation_parts.append(
             f"Your savings rate of {savings_rate}% exceeds the recommended 20% threshold."
         )
-    else:
+    elif include_benchmark:
         needed = round(income * 0.20 - monthly_savings, 2)
         recommendation_parts.append(
             f"Your savings rate is {savings_rate}%. To reach the 20% benchmark, "
             f"save ₹{needed:,.0f} more per month (target: ₹{round(income * 0.20, 2):,.0f}/month)."
+        )
+    elif monthly_savings >= 0:
+        recommendation_parts.append(
+            f"Your monthly savings are ₹{monthly_savings:,.0f} ({savings_rate}% of income)."
         )
 
     return {
@@ -738,6 +754,7 @@ def retirement_planner(
     retirement_age: int,
     savings:        float,
     monthly_contribution: float,
+    monthly_expenses: float | None = None,
 ) -> dict[str, Any]:
     """
     Project retirement corpus and assess funding gap or surplus.
@@ -798,18 +815,17 @@ def retirement_planner(
 
     projected_corpus = fv_existing + fv_contributions
 
-    # ── Estimate corpus needed ────────────────────────────────────────
-    # Assume current monthly expenses ≈ 40% of monthly contribution as proxy;
-    # better: caller should supply expenses — we use a 25× annual rule here.
-    # Corpus needed = Annual expenses at retirement / withdrawal_rate
-    # Proxy annual expenses = 12 × monthly_contribution × 2 (inflation-adj.)
-    # This is a simplification; the LLM prompt can add nuance.
-    inflation_factor   = (1 + _INFLATION_RATE) ** years
-    # Use monthly contribution as a rough proxy for current monthly spend
-    estimated_monthly_need_today = max(monthly_contribution, 10_000)
-    annual_need_at_retirement    = (
-        estimated_monthly_need_today * 12 * inflation_factor
-    )
+    # ── Estimate corpus needed from profile expenses (never invent) ───
+    if not monthly_expenses or monthly_expenses <= 0:
+        return {
+            "error": (
+                "Monthly expenses are required to estimate retirement corpus needs. "
+                "Please add your monthly expenses to your profile."
+            ),
+        }
+
+    inflation_factor = (1 + _INFLATION_RATE) ** years
+    annual_need_at_retirement = monthly_expenses * 12 * inflation_factor
     corpus_needed = annual_need_at_retirement / _WITHDRAWAL_RATE
 
     gap_or_surplus = projected_corpus - corpus_needed
