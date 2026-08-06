@@ -31,6 +31,7 @@ def budget_planner(
     income: float,
     expenses: dict[str, float],
     use_rule_limits: bool = False,
+    savings_goal: float | None = None,
 ) -> dict[str, Any]:
     """
     Analyse monthly income vs categorised expenses.
@@ -121,22 +122,69 @@ def budget_planner(
     else:
         savings_status = "overspent"
 
+    goal_diff = None
+    if savings_goal is not None and savings_goal > 0:
+        goal_diff = round(disposable - float(savings_goal), 2)
+
     summary = (
         f"You spend ₹{round(total_expenses):,} of your ₹{round(income):,} income "
         f"({round(100 - savings_rate, 1)}% expense ratio). "
-        f"Savings rate is {round(savings_rate, 1)}% — {savings_status}."
+        f"Remaining after expenses: ₹{round(disposable):,}."
     )
+    if savings_goal is not None and savings_goal > 0:
+        if goal_diff is not None and goal_diff >= 0:
+            summary += f" You exceed your savings goal by ₹{goal_diff:,}."
+        elif goal_diff is not None:
+            summary += f" You are ₹{abs(goal_diff):,} short of your savings goal."
     if use_rule_limits and overspending:
         summary += f" Overspending in: {', '.join(overspending)}."
+
+    steps: list[str] = [
+        f"Monthly Income = ₹{income:,.0f}",
+        f"Monthly Expenses = ₹{total_expenses:,.0f}",
+        "",
+        "Remaining Amount",
+        f"= ₹{income:,.0f} − ₹{total_expenses:,.0f}",
+        f"= ₹{disposable:,.0f}",
+    ]
+    if savings_goal is not None and savings_goal > 0:
+        steps.extend([
+            "",
+            f"Savings Goal = ₹{float(savings_goal):,.0f}",
+            "",
+            "Difference (Remaining − Savings Goal)",
+            f"= ₹{disposable:,.0f} − ₹{float(savings_goal):,.0f}",
+            f"= ₹{goal_diff:,.0f}",
+        ])
+
+    recommendation = summary
+    if savings_goal is not None and savings_goal > 0 and goal_diff is not None:
+        if goal_diff >= 0:
+            recommendation = (
+                f"After expenses you have ₹{disposable:,.0f}/month remaining, "
+                f"which meets your ₹{float(savings_goal):,.0f} savings goal "
+                f"(surplus ₹{goal_diff:,.0f})."
+            )
+        else:
+            recommendation = (
+                f"After expenses you have ₹{disposable:,.0f}/month remaining, "
+                f"but your savings goal is ₹{float(savings_goal):,.0f}. "
+                f"Close the ₹{abs(goal_diff):,.0f} gap by reducing expenses or increasing income."
+            )
 
     return {
         "income":             round(income, 2),
         "total_expenses":     round(total_expenses, 2),
         "disposable_income":  round(disposable, 2),
+        "remaining_amount":   round(disposable, 2),
+        "savings_goal":       round(float(savings_goal), 2) if savings_goal else None,
+        "goal_difference":    goal_diff,
         "savings_rate_pct":   round(savings_rate, 1),
         "category_breakdown": breakdown,
         "overspending":       overspending,
         "savings_status":     savings_status,
+        "calculation_steps":  steps,
+        "recommendation":     recommendation,
         "summary":            summary,
     }
 
@@ -458,6 +506,10 @@ def investment_analysis(
     portfolio: dict[str, float],
     risk_tolerance: str,
     age: int,
+    investment_experience: str | None = None,
+    financial_goals: str | None = None,
+    income: float | None = None,
+    rag_context: str = "",
 ) -> dict[str, Any]:
     """
     Evaluate current portfolio and recommend rebalancing.
@@ -495,10 +547,35 @@ def investment_analysis(
 
     total_value = sum(portfolio.values()) if portfolio else 0.0
 
+    steps: list[str] = [
+        f"Risk Tolerance = {risk}",
+        f"Age = {age} ({_age_bracket(age)} bracket)",
+    ]
+    if investment_experience:
+        steps.append(f"Investment Experience = {investment_experience}")
+    if financial_goals:
+        steps.append(f"Financial Goals = {financial_goals}")
+    if income is not None and income > 0:
+        steps.append(f"Monthly Income = ₹{income:,.0f}")
+
     if total_value <= 0:
-        # No portfolio yet — just return target allocation as a guide
         bracket = _age_bracket(age)
         target  = _TARGET_ALLOCATIONS[risk][bracket]
+        steps.append("")
+        steps.append("Target Allocation (from risk profile + age)")
+        for asset, pct in target.items():
+            steps.append(f"  {asset}: {pct}%")
+        rec = (
+            f"As a {risk} investor aged {age}"
+            + (f" with {investment_experience} experience" if investment_experience else "")
+            + f", target allocation: "
+            + ", ".join(f"{a} {p}%" for a, p in target.items())
+            + "."
+        )
+        if financial_goals:
+            rec += f" Align investments with your goal: {financial_goals}."
+        if rag_context:
+            rec += f" Reference: {rag_context[:300].strip()}."
         return {
             "portfolio_value":    0.0,
             "current_allocation": {},
@@ -506,11 +583,8 @@ def investment_analysis(
             "rebalancing_deltas": [],
             "risk_profile":       risk,
             "age_bracket":        bracket,
-            "recommendation": (
-                "No portfolio data provided. "
-                f"As a {risk} investor aged {age}, target the allocation above "
-                "when you begin investing."
-            ),
+            "calculation_steps":  steps,
+            "recommendation":     rec,
         }
 
     bracket = _age_bracket(age)
@@ -555,6 +629,16 @@ def investment_analysis(
     buy_actions  = [d["asset"] for d in deltas if d["action"] == "buy"]
     sell_actions = [d["asset"] for d in deltas if d["action"] == "sell"]
 
+    steps.extend([
+        f"Portfolio Value = ₹{round(total_value):,}",
+        "",
+        "Current vs Target Allocation",
+    ])
+    for asset in sorted(set(target.keys()) | set(current_alloc.keys())):
+        cur = current_alloc.get(asset, 0.0)
+        tgt = float(target.get(asset, 0.0))
+        steps.append(f"  {asset}: current {cur}% → target {tgt}%")
+
     recommendation = (
         f"Portfolio value: ₹{round(total_value):,}. "
         f"As a {risk} investor in the {bracket} bracket, "
@@ -568,6 +652,8 @@ def investment_analysis(
         recommendation += "rebalance by: " + "; ".join(parts) + "."
     else:
         recommendation += "your portfolio is well-balanced — no rebalancing needed."
+    if financial_goals:
+        recommendation += f" Goal context: {financial_goals}."
 
     return {
         "portfolio_value":    round(total_value, 2),
@@ -576,6 +662,7 @@ def investment_analysis(
         "rebalancing_deltas": deltas,
         "risk_profile":       risk,
         "age_bracket":        bracket,
+        "calculation_steps":  steps,
         "recommendation":     recommendation,
     }
 
@@ -858,6 +945,30 @@ def retirement_planner(
     else:
         summary += "You are broadly on track for retirement."
 
+    assumption_note = (
+        f"Assumptions: {_RETURN_RATE * 100:.0f}% annual return, "
+        f"{_INFLATION_RATE * 100:.0f}% inflation, "
+        f"{_WITHDRAWAL_RATE * 100:.0f}% safe withdrawal rate."
+    )
+    steps = [
+        f"Current Age = {current_age}",
+        f"Retirement Age = {retirement_age}",
+        f"Years to Retirement = {years}",
+        f"Current Savings = ₹{savings:,.0f}",
+        f"Monthly Contribution = ₹{monthly_contribution:,.0f}",
+        f"Monthly Expenses (today) = ₹{monthly_expenses:,.0f}",
+        "",
+        "Projected Corpus",
+        f"FV(existing) + FV(contributions) = ₹{round(projected_corpus):,.0f}",
+        "",
+        "Corpus Needed at Retirement",
+        f"Inflated annual expenses ÷ withdrawal rate = ₹{round(corpus_needed):,.0f}",
+        "",
+        f"Gap/Surplus = ₹{round(gap_or_surplus):,.0f}",
+        "",
+        assumption_note,
+    ]
+
     return {
         "years_to_retirement":      years,
         "current_savings":          round(savings, 2),
@@ -872,6 +983,8 @@ def retirement_planner(
             "inflation_rate_pct":     _INFLATION_RATE * 100,
             "safe_withdrawal_rate_pct": _WITHDRAWAL_RATE * 100,
         },
+        "calculation_steps":        steps,
+        "recommendation":           summary,
         "summary":                  summary,
     }
 
@@ -1047,6 +1160,16 @@ def tax_optimizer(
         f"(saves ₹{round(savings_vs_other):,})."
     )
 
+    steps = [
+        f"Annual Income = ₹{income:,.0f}",
+        f"Old Regime Taxable = ₹{round(taxable_old):,.0f}",
+        f"Old Regime Tax = ₹{round(tax_old):,.0f}",
+        f"New Regime Taxable = ₹{round(taxable_new):,.0f}",
+        f"New Regime Tax = ₹{round(tax_new):,.0f}",
+        f"Recommended = {recommended_regime.upper()} regime",
+        f"Tax Savings vs Other = ₹{round(savings_vs_other):,.0f}",
+    ]
+
     return {
         "gross_income":         round(income, 2),
         "old_regime": {
@@ -1063,5 +1186,7 @@ def tax_optimizer(
         "tax_savings_vs_other": savings_vs_other,
         "optimisation_tips":    tips,
         "untapped_deductions":  untapped,
+        "calculation_steps":    steps,
+        "recommendation":       summary,
         "summary":              summary,
     }
