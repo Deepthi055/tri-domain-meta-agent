@@ -10,6 +10,7 @@ from models.profile import UserProfile, CareerProfile, HealthProfile, FinancePro
 from models.conversation import Conversation, Message
 from models.memory import UserMemory
 from models.report import Report
+from models.progress import AssessmentEvent
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "Message",
     "UserMemory",
     "Report",
+    "AssessmentEvent",
 ]

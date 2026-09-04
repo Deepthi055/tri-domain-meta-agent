@@ -53,3 +53,6 @@ class User(Base):
     reports = relationship(
         "Report", back_populates="user", cascade="all, delete-orphan"
     )
+    assessment_events = relationship(
+        "AssessmentEvent", back_populates="user", cascade="all, delete-orphan"
+    )
