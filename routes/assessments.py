@@ -5,8 +5,9 @@ from sqlalchemy.orm import Session
 from core.database import get_db
 from core.security import get_current_user
 from models.profile import CareerProfile, FinanceProfile, HealthProfile, UserProfile
+from models.progress import AssessmentEvent
 from models.user import User
-from schemas.assessment import AssessmentResponse, HealthAssessmentRequest
+from schemas.assessment import AssessmentHistoryItem, AssessmentResponse, HealthAssessmentRequest
 from services.assessment_persistence import save_assessment_event
 from services.assessment_service import (
     calculate_career_assessment,
@@ -34,6 +35,31 @@ def _response(event) -> AssessmentResponse:
 
 def _assessment_error(error: ValueError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(error))
+
+
+@router.get("/history", response_model=list[AssessmentHistoryItem])
+def get_assessment_history(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    events = (
+        db.query(AssessmentEvent)
+        .filter(AssessmentEvent.user_id == current_user.id)
+        .order_by(AssessmentEvent.created_at.desc())
+        .all()
+    )
+    return [
+        AssessmentHistoryItem(
+            assessment_id=event.id,
+            domain=event.domain,
+            assessment_type=event.assessment_type,
+            value=event.value,
+            value_kind=event.value_kind,
+            target_role=event.target_role,
+            assessed_at=event.created_at,
+        )
+        for event in events
+    ]
 
 
 @router.post("/career", response_model=AssessmentResponse)

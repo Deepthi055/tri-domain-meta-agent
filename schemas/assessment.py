@@ -27,3 +27,13 @@ class AssessmentResponse(BaseModel):
     source: str
     calculation_version: str
     details: dict[str, Any] | None = None
+
+
+class AssessmentHistoryItem(BaseModel):
+    assessment_id: str
+    domain: str
+    assessment_type: str
+    value: float
+    value_kind: str
+    target_role: str | None = None
+    assessed_at: datetime

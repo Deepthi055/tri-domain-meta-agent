@@ -1,5 +1,6 @@
 """Integration tests for authenticated assessment creation endpoints."""
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi import FastAPI
@@ -121,6 +122,25 @@ def _finance_profile(db: Session, user: User, income=40000, expenses=30000) -> N
 def _event_count(session_factory) -> int:
     with session_factory() as db:
         return db.query(AssessmentEvent).count()
+
+
+def _assessment_event(db: Session, user: User, *, created_at: datetime, value: float, target_role: str | None = None) -> AssessmentEvent:
+    event = AssessmentEvent(
+        user_id=user.id,
+        domain="career",
+        assessment_type="target_role_skill_match",
+        value=value,
+        value_kind="score",
+        target_role=target_role or "data scientist",
+        created_at=created_at,
+        source="skill_gap_analyzer",
+        calculation_version="skill-gap-v1",
+        details={"sensitive": "not returned"},
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return event
 
 
 def test_career_assessment_success_and_persistence(assessment_context):
@@ -460,3 +480,71 @@ def test_finance_assessment_isolated_by_authenticated_user(assessment_context):
     with session_factory() as db:
         events = db.query(AssessmentEvent).all()
         assert {event.user_id for event in events} == {user_a.id, user_b.id}
+
+
+def test_assessment_history_returns_empty_for_user_without_events(assessment_context):
+    client, session_factory = assessment_context
+    with session_factory() as db:
+        user = _create_user(db)
+
+    response = client.get("/assessments/history", headers=_headers(user))
+
+    assert response.status_code == 200, response.text
+    assert response.json() == []
+
+
+def test_assessment_history_returns_only_authenticated_users_events(assessment_context):
+    client, session_factory = assessment_context
+    now = datetime.now(timezone.utc)
+    with session_factory() as db:
+        user_a = _create_user(db, "History A")
+        user_b = _create_user(db, "History B")
+        event_a = _assessment_event(db, user_a, created_at=now, value=40)
+        _assessment_event(db, user_b, created_at=now + timedelta(seconds=1), value=90)
+
+    response = client.get("/assessments/history", headers=_headers(user_a))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert len(body) == 1
+    assert body[0] == {
+        "assessment_id": event_a.id,
+        "domain": "career",
+        "assessment_type": "target_role_skill_match",
+        "value": 40.0,
+        "value_kind": "score",
+        "target_role": "data scientist",
+        "assessed_at": event_a.created_at.isoformat().replace("+00:00", "Z"),
+    }
+    assert "details" not in body[0]
+    assert "source" not in body[0]
+    assert "calculation_version" not in body[0]
+    assert "user_id" not in body[0]
+
+
+def test_assessment_history_returns_events_newest_first(assessment_context):
+    client, session_factory = assessment_context
+    now = datetime.now(timezone.utc)
+    with session_factory() as db:
+        user = _create_user(db)
+        older = _assessment_event(db, user, created_at=now, value=40)
+        newer = _assessment_event(db, user, created_at=now + timedelta(days=1), value=60)
+
+    response = client.get("/assessments/history", headers=_headers(user))
+
+    assert response.status_code == 200, response.text
+    assert [item["assessment_id"] for item in response.json()] == [newer.id, older.id]
+
+
+def test_assessment_history_does_not_return_another_users_event(assessment_context):
+    client, session_factory = assessment_context
+    with session_factory() as db:
+        user_a = _create_user(db, "Owner")
+        user_b = _create_user(db, "Other")
+        _assessment_event(db, user_a, created_at=datetime.now(timezone.utc), value=55)
+        event_b = _assessment_event(db, user_b, created_at=datetime.now(timezone.utc), value=75)
+
+    response = client.get("/assessments/history", headers=_headers(user_a))
+
+    assert response.status_code == 200, response.text
+    assert event_b.id not in {item["assessment_id"] for item in response.json()}
