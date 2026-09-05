@@ -142,6 +142,16 @@ export interface ReportCreate {
   conversation_id?: string | null
 }
 
+export interface AssessmentHistoryItem {
+  assessment_id: string
+  domain: 'career' | 'health' | 'finance'
+  assessment_type: 'target_role_skill_match' | 'fitness' | 'savings_rate'
+  value: number
+  value_kind: 'score' | 'percentage'
+  target_role: string | null
+  assessed_at: string
+}
+
 export interface QueryRequest {
   name: string
   age: number

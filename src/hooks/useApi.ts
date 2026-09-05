@@ -3,6 +3,7 @@ import { useEffect } from 'react'
 import { API_BASE_URL } from '@/utils/constants'
 import {
   authService,
+  assessmentService,
   chatService,
   memoryService,
   profileService,
@@ -24,6 +25,7 @@ export const queryKeys = {
   chatHistory: ['chatHistory'] as const,
   conversation: (id: string) => ['conversation', id] as const,
   reports: ['reports'] as const,
+  assessmentHistory: (userId: string) => ['assessmentHistory', userId] as const,
   domains: ['domains'] as const,
   apiStatus: ['apiStatus'] as const,
 }

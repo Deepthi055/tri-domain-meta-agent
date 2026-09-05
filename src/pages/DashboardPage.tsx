@@ -23,7 +23,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
-import { useChatHistory, useMemories, useProfile, useReports } from '@/hooks'
+import { useAssessmentHistory, useChatHistory, useMemories, useProfile, useReports } from '@/hooks'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
 import { DomainCard } from '@/components/common/DomainCard'
@@ -49,6 +49,7 @@ export function DashboardPage() {
   const { data: conversations } = useChatHistory()
   const { data: memories } = useMemories()
   const { data: reports } = useReports()
+  const { data: assessmentHistory, isLoading: isAssessmentHistoryLoading, isError: isAssessmentHistoryError } = useAssessmentHistory()
 
   const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
   const dashboardInsights = useMemo(() => buildDashboardInsights(profile), [profile])
@@ -57,20 +58,12 @@ export function DashboardPage() {
   const recentMemories = memories?.slice(0, 2) ?? []
   const latestReports = reports?.slice(0, 1) ?? []
   const recentActivities = useMemo(() => buildDashboardActivity(profile, conversations, memories, reports), [profile, conversations, memories, reports])
-  const chartData = useMemo(() => {
-    const baseCareer = Math.max(50, Math.min(95, domainScores.career))
-    const baseHealth = Math.max(50, Math.min(95, domainScores.health))
-    const baseFinance = Math.max(50, Math.min(95, domainScores.finance))
-
-    return [
-      { month: 'Jan', career: Math.max(45, baseCareer - 12), health: Math.max(45, baseHealth - 10), finance: Math.max(45, baseFinance - 12) },
-      { month: 'Feb', career: Math.max(48, baseCareer - 8), health: Math.max(48, baseHealth - 6), finance: Math.max(48, baseFinance - 8) },
-      { month: 'Mar', career: Math.max(52, baseCareer - 4), health: Math.max(52, baseHealth - 3), finance: Math.max(52, baseFinance - 4) },
-      { month: 'Apr', career: Math.max(56, baseCareer), health: Math.max(56, baseHealth), finance: Math.max(56, baseFinance) },
-      { month: 'May', career: Math.max(60, baseCareer + 3), health: Math.max(60, baseHealth + 3), finance: Math.max(60, baseFinance + 3) },
-      { month: 'Jun', career: baseCareer, health: baseHealth, finance: baseFinance },
-    ]
-  }, [domainScores])
+  const chartData = useMemo(() => (assessmentHistory ?? []).map((assessment: AssessmentHistoryItem) => ({
+    month: new Date(assessment.assessed_at).toLocaleDateString(),
+    career: assessment.domain === 'career' ? assessment.value : undefined,
+    health: assessment.domain === 'health' ? assessment.value : undefined,
+    finance: assessment.domain === 'finance' ? assessment.value : undefined,
+  })), [assessmentHistory])
 
   const handleQuickSearch = () => {
     if (searchQuery.trim()) {
@@ -225,38 +218,52 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Domain Progress" description="Score trends over 6 months">
-          <ResponsiveContainer width="100%" height={250}>
-            <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="careerGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Area type="monotone" dataKey="career" stroke="#3b82f6" fill="url(#careerGrad)" strokeWidth={2} />
-              <Area type="monotone" dataKey="health" stroke="#10b981" fill="url(#healthGrad)" strokeWidth={2} />
-              <Area type="monotone" dataKey="finance" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} />
-            </AreaChart>
-          </ResponsiveContainer>
+        <ChartCard title="Domain Progress" description="Recorded assessment history">
+          {isAssessmentHistoryLoading ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              Loading assessment history...
+            </div>
+          ) : isAssessmentHistoryError ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              Unable to load assessment history.
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              No assessment history yet
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height={250}>
+              <AreaChart data={chartData}>
+                <defs>
+                  <linearGradient id="careerGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Area type="monotone" dataKey="career" name="Career skill match score" stroke="#3b82f6" fill="url(#careerGrad)" strokeWidth={2} connectNulls={false} />
+                <Area type="monotone" dataKey="health" name="Health fitness score" stroke="#10b981" fill="url(#healthGrad)" strokeWidth={2} connectNulls={false} />
+                <Area type="monotone" dataKey="finance" name="Finance savings rate" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} connectNulls={false} />
+              </AreaChart>
+            </ResponsiveContainer>
+          )}
         </ChartCard>
 
         <Card>
