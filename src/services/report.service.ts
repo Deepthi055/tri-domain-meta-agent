@@ -18,7 +18,7 @@ export const reportService = {
   },
 
   getDownloadUrl(id: string): string {
-    const token = localStorage.getItem('tridomain_access_token')
+    const token = sessionStorage.getItem('tridomain_access_token')
     return `/reports/${id}?token=${token}`
   },
 }

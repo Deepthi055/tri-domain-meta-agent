@@ -20,13 +20,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { FullProfile } from '@/types'
 
+const optionalNumber = (schema: z.ZodNumber) =>
+  z.preprocess((value) => value === '' || value === null ? undefined : value, schema.optional())
+
 const profileSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   general: z.object({
-    age: z.coerce.number().min(1).max(120).optional(),
+    age: optionalNumber(z.coerce.number().min(1).max(120)),
     gender: z.string().optional(),
-    height_cm: z.coerce.number().min(50).max(300).optional(),
-    weight_kg: z.coerce.number().min(20).max(500).optional(),
+    height_cm: optionalNumber(z.coerce.number().min(50).max(300)),
+    weight_kg: optionalNumber(z.coerce.number().min(20).max(500)),
     location: z.string().optional(),
   }).optional(),
   career: z.object({
@@ -119,41 +122,41 @@ function buildFormValues(profile: FullProfile | undefined, userName: string): Pr
   return {
     name: userName,
     general: profile.general ? {
-      age: profile.general.age,
-      gender: profile.general.gender,
-      height_cm: profile.general.height_cm,
-      weight_kg: profile.general.weight_kg,
-      location: profile.general.location,
+      age: profile.general.age ?? undefined,
+      gender: profile.general.gender ?? undefined,
+      height_cm: profile.general.height_cm ?? undefined,
+      weight_kg: profile.general.weight_kg ?? undefined,
+      location: profile.general.location ?? undefined,
     } : {},
     career: profile.career ? {
-      education: profile.career.education,
+      education: profile.career.education ?? undefined,
       current_skills: profile.career.current_skills?.join(', '),
-      target_role: profile.career.target_role,
-      experience_level: profile.career.experience_level,
-      career_goal: profile.career.career_goal,
-      preferred_roles: profile.career.preferred_roles,
-      resume: profile.career.resume,
+      target_role: profile.career.target_role ?? undefined,
+      experience_level: profile.career.experience_level ?? undefined,
+      career_goal: profile.career.career_goal ?? undefined,
+      preferred_roles: profile.career.preferred_roles ?? undefined,
+      resume: profile.career.resume ?? undefined,
     } : {},
     health: profile.health ? {
-      medical_conditions: profile.health.medical_conditions,
-      lifestyle: profile.health.lifestyle,
-      fitness_goal: profile.health.fitness_goal,
-      sleep_hours: profile.health.sleep_hours,
-      sleep_quality: profile.health.sleep_quality,
-      diet_preference: profile.health.diet_preference,
-      workout: profile.health.workout,
-      health_goals: profile.health.health_goals,
-      water_intake: profile.health.water_intake,
+      medical_conditions: profile.health.medical_conditions ?? undefined,
+      lifestyle: profile.health.lifestyle ?? undefined,
+      fitness_goal: profile.health.fitness_goal ?? undefined,
+      sleep_hours: profile.health.sleep_hours ?? undefined,
+      sleep_quality: profile.health.sleep_quality ?? undefined,
+      diet_preference: profile.health.diet_preference ?? undefined,
+      workout: profile.health.workout ?? undefined,
+      health_goals: profile.health.health_goals ?? undefined,
+      water_intake: profile.health.water_intake ?? undefined,
     } : {},
     finance: profile.finance ? {
-      monthly_income: profile.finance.monthly_income,
-      monthly_expenses: profile.finance.monthly_expenses,
-      savings_goal: profile.finance.savings_goal,
-      investments: profile.finance.investments,
-      risk_appetite: profile.finance.risk_appetite,
-      investment_experience: profile.finance.investment_experience,
-      financial_goals: profile.finance.financial_goals,
-      budget: profile.finance.budget,
+      monthly_income: profile.finance.monthly_income ?? undefined,
+      monthly_expenses: profile.finance.monthly_expenses ?? undefined,
+      savings_goal: profile.finance.savings_goal ?? undefined,
+      investments: profile.finance.investments ?? undefined,
+      risk_appetite: profile.finance.risk_appetite ?? undefined,
+      investment_experience: profile.finance.investment_experience ?? undefined,
+      financial_goals: profile.finance.financial_goals ?? undefined,
+      budget: profile.finance.budget ?? undefined,
     } : {},
   }
 }
@@ -164,7 +167,7 @@ export function ProfilePage() {
   const queryClient = useQueryClient()
   const { data: profile, isLoading, refetch } = useProfile()
 
-  const { register, control, handleSubmit, reset, setValue, formState: { isSubmitting } } = useForm<ProfileForm>({
+  const { register, control, handleSubmit, reset, setValue, formState: { isSubmitting, isDirty } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: user?.name || '',
@@ -174,7 +177,8 @@ export function ProfilePage() {
       finance: {},
     },
   })
-  const initializedRef = useRef(false)
+  const initializedForUserRef = useRef<string | null>(null)
+  const formSyncedForUserRef = useRef<string | null>(null)
   const [hasProfile, setHasProfile] = useState(false)
   const [resumeFileName, setResumeFileName] = useState<string | null>(null)
   const [resumeUploadMessage, setResumeUploadMessage] = useState<string | null>(null)
@@ -190,19 +194,47 @@ export function ProfilePage() {
   }, [profileHasData])
 
   useEffect(() => {
-    if (isLoading || initializedRef.current) return
-    initializedRef.current = true
-    reset(buildFormValues(profile, user?.name || ''))
-  }, [isLoading, profile, reset, user?.name])
+    if (!user?.id) {
+      initializedForUserRef.current = null
+      formSyncedForUserRef.current = null
+      return
+    }
+    if (initializedForUserRef.current !== user.id) {
+      initializedForUserRef.current = user.id
+      formSyncedForUserRef.current = null
+      void refetch()
+    }
+  }, [refetch, user?.id])
 
   useEffect(() => {
-    if (!user?.id || initializedRef.current) return
-    void refetch()
-  }, [refetch, user?.id])
+    if (isLoading || !user?.id) return
+    if (formSyncedForUserRef.current === user.id) return
+    if (isDirty) {
+      console.log('[Profile Sync] skipped dirty form', {
+        profileSkills: profile?.career?.current_skills,
+      })
+      return
+    }
+    formSyncedForUserRef.current = user.id
+    const formValues = buildFormValues(profile, user.name || '')
+    console.log('[Profile Sync] reset from profile', {
+      profileSkills: profile?.career?.current_skills,
+      formSkills: formValues.career?.current_skills,
+    })
+    reset(formValues)
+  }, [isDirty, isLoading, profile, reset, user?.id, user?.name])
 
   const onSubmit = async (data: ProfileForm) => {
     const payload = buildProfilePayload(data)
     const saveError = 'Unable to save profile right now.'
+
+    console.log('[Profile Save] onSubmit', {
+      formSkills: data.career?.current_skills,
+      payloadSkills: payload.career?.current_skills,
+      targetRole: data.career?.target_role,
+      isDirty,
+    })
+    console.log('[Profile Save] payload target role', payload.career?.target_role)
 
     setIsSaving(true)
     setSaveMessage(null)
@@ -215,16 +247,26 @@ export function ProfilePage() {
       }
 
       const savedProfile = hasProfile
-        ? await profileService.update(payload)
+        ? (console.log('[Profile Save] before profileService.update', payload.career?.target_role), await profileService.update(payload))
         : await profileService.create(payload)
 
       if (savedProfile) {
-        const refreshedProfile = await profileService.get()
+        console.log('[Profile Save] update resolved', {
+          responseSkills: savedProfile.career?.current_skills,
+          targetRole: savedProfile.career?.target_role,
+        })
         setHasProfile(true)
-        queryClient.setQueryData(queryKeys.profile, refreshedProfile)
-        await invalidateProfileDependentQueries(queryClient)
-        await refetch()
-        reset(buildFormValues(refreshedProfile, data.name || user?.name || ''))
+        if (user?.id) {
+          await invalidateProfileDependentQueries(queryClient, user.id)
+          queryClient.setQueryData(queryKeys.profile(user.id), savedProfile)
+        }
+        formSyncedForUserRef.current = user?.id ?? null
+        const savedFormValues = buildFormValues(savedProfile, data.name || user?.name || '')
+        console.log('[Profile Save] reset from update response', {
+          responseSkills: savedProfile.career?.current_skills,
+          formSkills: savedFormValues.career?.current_skills,
+        })
+        reset(savedFormValues)
         setIsSaved(true)
         setSaveMessage(t('profileSaved'))
         toast.success(t('profileSaved'))
@@ -237,6 +279,55 @@ export function ProfilePage() {
     } finally {
       setIsSaving(false)
     }
+  }
+
+  const onInvalid = (errors: unknown) => {
+    const walkErrors = (node: unknown, path = 'form') => {
+      if (!node || typeof node !== 'object') {
+        return
+      }
+
+      if ('type' in (node as Record<string, unknown>) && 'message' in (node as Record<string, unknown>)) {
+        const fieldError = node as {
+          type?: string
+          message?: string
+          ref?: { name?: string; value?: unknown }
+          value?: unknown
+          types?: Record<string, string>
+        }
+
+        console.error(`[Profile validation] ${path}`, {
+          type: fieldError.type,
+          message: fieldError.message,
+          refName: fieldError.ref?.name,
+          value: fieldError.ref?.value ?? fieldError.value,
+          types: fieldError.types,
+        })
+        return
+      }
+
+      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
+        const nextPath = path === 'form' ? key : `${path}.${key}`
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          walkErrors(value, nextPath)
+          return
+        }
+
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => {
+            walkErrors(item, `${nextPath}[${index}]`)
+          })
+          return
+        }
+
+        console.error(`[Profile validation] ${nextPath}`, value)
+      })
+    }
+
+    console.error('Profile validation errors:')
+    walkErrors(errors)
+    toast.error('Please correct the highlighted profile fields.')
   }
 
   const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -392,7 +483,7 @@ export function ProfilePage() {
         </div>
       ) : null}
 
-      <form id="profileForm" onSubmit={handleSubmit(onSubmit)}>
+      <form id="profileForm" onSubmit={handleSubmit(onSubmit, onInvalid)}>
         <Tabs defaultValue="general" onValueChange={() => setSaveMessage(null)}>
           <TabsList className="mb-6">
             <TabsTrigger value="general">Personal</TabsTrigger>

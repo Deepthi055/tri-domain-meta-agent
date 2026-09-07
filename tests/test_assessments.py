@@ -15,6 +15,7 @@ from models.profile import CareerProfile, FinanceProfile, HealthProfile, UserPro
 from models.progress import AssessmentEvent
 from models.user import User
 from routes.assessments import router as assessments_router
+from tools.calculators import _extract_skills_from_career_knowledge
 
 # Register every model, including AssessmentEvent, with Base.metadata.
 from models import conversation, memory, profile, progress, report, user  # noqa: F401,E402
@@ -198,6 +199,59 @@ def test_career_assessment_incomplete_profile_returns_400(
 
     assert response.status_code == 400, response.text
     assert _event_count(session_factory) == 0
+
+
+def test_career_assessment_supports_non_hardcoded_target_role(monkeypatch, assessment_context):
+    client, session_factory = assessment_context
+    with session_factory() as db:
+        user = _create_user(db, "Dynamic Role User")
+        _career_profile(db, user, target_role="platform engineer", current_skills=["python", "sql", "aws"])
+
+    monkeypatch.setattr(
+        "rag.retriever.retrieve_as_context",
+        lambda *args, **kwargs: "Platform engineering requires Python, SQL, cloud infrastructure, CI/CD, and Kubernetes.",
+    )
+    monkeypatch.setattr(
+        "core.llm_client.call_llm",
+        lambda *args, **kwargs: {
+            "required_skills": ["python", "sql", "ci/cd", "kubernetes", "aws"],
+            "confidence": 0.9,
+        },
+    )
+
+    response = client.post("/assessments/career", headers=_headers(user))
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["target_role"] == "platform engineer"
+    assert body["details"]["matched_skills"] == ["python", "sql"]
+    assert body["details"]["missing_skills"] == ["ci/cd", "kubernetes"]
+    assert body["details"]["total_required_skills"] == 4
+
+
+@pytest.mark.parametrize(
+    ("knowledge", "expected"),
+    [
+        (
+            "Essential Skills\n1. Python\n2. SQL\n3. Machine learning",
+            ["python", "sql", "machine learning"],
+        ),
+        (
+            "The most in-demand skills are: 1. Python programming ... 2. SQL ... 3. Machine learning ... 4. Statistics and probability ... 5. Data visualization ...",
+            ["python", "sql", "machine learning", "statistics", "data visualization"],
+        ),
+        (
+            "Essential Skills\n1. Python\n2. SQL ... 3. Machine learning\n4. Statistics",
+            ["python", "sql", "machine learning", "statistics"],
+        ),
+        (
+            "Essential Skills: 1. Python programming 2. SQL 3. Python development 4. Kubernetes",
+            ["python", "sql", "kubernetes"],
+        ),
+    ],
+)
+def test_extracts_numbered_skills_from_rag_formats(knowledge, expected):
+    assert _extract_skills_from_career_knowledge(knowledge, "product manager") == expected
 
 
 def test_career_assessment_uses_authenticated_user_profile(assessment_context):

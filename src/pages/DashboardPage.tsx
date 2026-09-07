@@ -38,7 +38,8 @@ import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/utils/constants'
 import { activityIcons, domainIcons } from '@/utils/navigation'
 import { formatRelativeDate } from '@/utils'
-import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights, buildDashboardTrendValues } from '@/utils/profileInsights'
+import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights } from '@/utils/profileInsights'
+import type { AssessmentHistoryItem } from '@/types'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -53,7 +54,6 @@ export function DashboardPage() {
 
   const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
   const dashboardInsights = useMemo(() => buildDashboardInsights(profile), [profile])
-  const trendValues = useMemo(() => buildDashboardTrendValues(profile), [profile])
   const recentConversations = conversations?.slice(0, 3) ?? []
   const recentMemories = memories?.slice(0, 2) ?? []
   const latestReports = reports?.slice(0, 1) ?? []
@@ -150,10 +150,9 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Overall Score"
-          value={domainScores.overall}
+          value={domainScores.overall ?? 'Not enough data'}
           subtitle="Across all domains"
           icon={TrendingUp}
-          trend={{ value: trendValues.overall, label: 'profile completion' }}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard

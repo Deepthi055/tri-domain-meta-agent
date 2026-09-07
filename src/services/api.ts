@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
+import { clearUserQueryCache } from '@/lib/queryClient'
 import { API_BASE_URL, STORAGE_KEYS } from '@/utils/constants'
 
 export const api = axios.create({
@@ -8,7 +9,7 @@ export const api = axios.create({
 })
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const token = localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+  const token = sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -19,8 +20,9 @@ api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
-      localStorage.removeItem(STORAGE_KEYS.USER)
+      sessionStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
+      sessionStorage.removeItem(STORAGE_KEYS.USER)
+      clearUserQueryCache()
       if (!window.location.pathname.startsWith('/login')) {
         window.location.href = '/login'
       }

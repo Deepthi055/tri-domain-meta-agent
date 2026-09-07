@@ -103,3 +103,50 @@ Managing stress during career transition:
 - If job stress is severely affecting health, consult a professional counselor
 - Never make major career decisions during periods of extreme stress
 - Financial stress compounds career stress — maintain emergency fund of 6 months
+
+---
+
+DOCUMENT: Essential Skills for Product Manager
+ROLE: Product Manager
+
+The most important skills for Product Manager roles are:
+1. Product strategy
+2. Market research
+3. User research
+4. Product analytics
+5. SQL
+6. Agile and Scrum
+7. Stakeholder management
+8. Communication
+9. Product roadmap planning
+10. Data-driven decision making
+
+---
+
+DOCUMENT: Essential Skills for Data Analyst
+ROLE: Data Analyst
+
+The most important skills for Data Analyst roles are:
+1. SQL
+2. Excel
+3. Python
+4. Statistics
+5. Data visualization
+6. Tableau
+7. Power BI
+8. Data cleaning
+
+---
+
+DOCUMENT: Essential Skills for Software Engineer
+ROLE: Software Engineer
+
+The most important skills for Software Engineer roles are:
+1. Programming
+2. Data structures
+3. Algorithms
+4. Git
+5. Databases
+6. REST APIs
+7. Testing
+8. Problem solving

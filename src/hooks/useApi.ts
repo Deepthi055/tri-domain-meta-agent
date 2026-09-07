@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
 import { API_BASE_URL } from '@/utils/constants'
 import {
   authService,
@@ -13,6 +14,7 @@ import {
 import type {
   ChatRequest,
   FullProfile,
+  HealthAssessmentRequest,
   MemoryCreate,
   QueryRequest,
   RegisterRequest,
@@ -20,22 +22,23 @@ import type {
 } from '@/types'
 
 export const queryKeys = {
-  profile: ['profile'] as const,
-  memories: (category?: string) => ['memories', category] as const,
-  chatHistory: ['chatHistory'] as const,
-  conversation: (id: string) => ['conversation', id] as const,
-  reports: ['reports'] as const,
+  profile: (userId: string) => ['profile', userId] as const,
+  memories: (userId: string, category?: string) => ['memories', userId, category] as const,
+  chatHistory: (userId: string) => ['chatHistory', userId] as const,
+  conversation: (userId: string, id: string) => ['conversation', userId, id] as const,
+  reports: (userId: string) => ['reports', userId] as const,
   assessmentHistory: (userId: string) => ['assessmentHistory', userId] as const,
   domains: ['domains'] as const,
   apiStatus: ['apiStatus'] as const,
 }
 
-export function invalidateProfileDependentQueries(qc: QueryClient) {
+export function invalidateProfileDependentQueries(qc: QueryClient, userId: string) {
   return Promise.all([
-    qc.invalidateQueries({ queryKey: queryKeys.profile }),
+    qc.invalidateQueries({ queryKey: queryKeys.profile(userId) }),
     qc.invalidateQueries({
       predicate: (query) => {
-        const [key] = query.queryKey as [string?]
+        const [key, id] = query.queryKey as [string?, string?]
+        if (id !== userId) return false
         return key === 'chatHistory' || key === 'reports' || key === 'memories' || key === 'domains'
       },
     }),
@@ -43,66 +46,82 @@ export function invalidateProfileDependentQueries(qc: QueryClient) {
 }
 
 export function useProfile() {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: queryKeys.profile,
+    queryKey: queryKeys.profile(user?.id ?? ''),
     queryFn: () => profileService.get(),
+    enabled: !!user?.id,
     retry: 1,
   })
 }
 
 export function useUpdateProfile() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: (data: FullProfile) => profileService.update(data),
     onSuccess: async (data) => {
-      qc.setQueryData(queryKeys.profile, data)
-      await invalidateProfileDependentQueries(qc)
+      if (!user?.id) return
+      qc.setQueryData(queryKeys.profile(user.id), data)
+      await invalidateProfileDependentQueries(qc, user.id)
     },
   })
 }
 
 export function useCreateProfile() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: (data: FullProfile) => profileService.create(data),
     onSuccess: async (data) => {
-      qc.setQueryData(queryKeys.profile, data)
-      await invalidateProfileDependentQueries(qc)
+      if (!user?.id) return
+      qc.setQueryData(queryKeys.profile(user.id), data)
+      await invalidateProfileDependentQueries(qc, user.id)
     },
   })
 }
 
 export function useMemories(category?: string) {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: queryKeys.memories(category),
+    queryKey: queryKeys.memories(user?.id ?? '', category),
     queryFn: () => memoryService.getAll(category),
+    enabled: !!user?.id,
   })
 }
 
 export function useCreateMemory() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: (data: MemoryCreate) => memoryService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.memories() }),
+    onSuccess: () => {
+      if (!user?.id) return
+      qc.invalidateQueries({ queryKey: queryKeys.memories(user.id) })
+    },
   })
 }
 
 export function useChatHistory() {
   const qc = useQueryClient()
+  const { user } = useAuth()
+  const userId = user?.id ?? ''
   const query = useQuery({
-    queryKey: queryKeys.chatHistory,
+    queryKey: queryKeys.chatHistory(userId),
     queryFn: () => chatService.getHistory(),
+    enabled: !!user?.id,
   })
 
   useEffect(() => {
-    // build websocket URL from API base (supports empty => same origin)
+    if (!user?.id) return
+
     const base = API_BASE_URL || window.location.origin
     const wsBase = base.replace(/^http/, 'ws')
     const wsUrl = `${wsBase}/chat/ws`
     let ws: WebSocket
     try {
       ws = new WebSocket(wsUrl)
-    } catch (err) {
+    } catch {
       return
     }
 
@@ -110,13 +129,13 @@ export function useChatHistory() {
       try {
         const msg = JSON.parse(e.data)
         if (msg.type === 'conversation_created') {
-          qc.setQueryData(queryKeys.chatHistory, (old: any[] | undefined) => {
+          qc.setQueryData(queryKeys.chatHistory(user.id), (old: any[] | undefined) => {
             const existing = old ?? []
             const filtered = existing.filter((c) => c.id !== msg.payload.id)
             return [msg.payload, ...filtered].slice(0, 10)
           })
         }
-      } catch (err) {
+      } catch {
         // ignore
       }
     }
@@ -126,45 +145,77 @@ export function useChatHistory() {
         ws.close()
       } catch {}
     }
-  }, [qc])
+  }, [qc, user?.id])
 
   return query
 }
 
 export function useConversation(id: string | null) {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: queryKeys.conversation(id || ''),
+    queryKey: queryKeys.conversation(user?.id ?? '', id || ''),
     queryFn: () => chatService.getConversation(id!),
-    enabled: !!id,
+    enabled: !!user?.id && !!id,
   })
 }
 
 export function useSendChat() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: (data: ChatRequest) => chatService.send(data),
     onSuccess: (_data, variables) => {
-      qc.invalidateQueries({ queryKey: queryKeys.chatHistory })
-      qc.invalidateQueries({ queryKey: queryKeys.memories() })
+      if (!user?.id) return
+      qc.invalidateQueries({ queryKey: queryKeys.chatHistory(user.id) })
+      qc.invalidateQueries({ queryKey: queryKeys.memories(user.id) })
       if (variables.conversation_id) {
-        qc.invalidateQueries({ queryKey: queryKeys.conversation(variables.conversation_id) })
+        qc.invalidateQueries({
+          queryKey: queryKeys.conversation(user.id, variables.conversation_id),
+        })
       }
     },
   })
 }
 
 export function useReports() {
+  const { user } = useAuth()
   return useQuery({
-    queryKey: queryKeys.reports,
+    queryKey: queryKeys.reports(user?.id ?? ''),
     queryFn: () => reportService.getAll(),
+    enabled: !!user?.id,
+  })
+}
+
+export function useAssessmentHistory() {
+  const { user } = useAuth()
+  return useQuery({
+    queryKey: queryKeys.assessmentHistory(user?.id ?? ''),
+    queryFn: () => assessmentService.getHistory(),
+    enabled: !!user?.id,
+  })
+}
+
+export function useCareerAssessment() {
+  return useMutation({
+    mutationFn: () => assessmentService.assessCareer(),
+  })
+}
+
+export function useHealthAssessment() {
+  return useMutation({
+    mutationFn: (data: HealthAssessmentRequest) => assessmentService.assessHealth(data),
   })
 }
 
 export function useCreateReport() {
   const qc = useQueryClient()
+  const { user } = useAuth()
   return useMutation({
     mutationFn: (data: ReportCreate) => reportService.create(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.reports }),
+    onSuccess: () => {
+      if (!user?.id) return
+      qc.invalidateQueries({ queryKey: queryKeys.reports(user.id) })
+    },
   })
 }
 

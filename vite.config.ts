@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
       port: 5173,
       proxy: {
         '/auth': backendTarget,
+        '/assessments': backendTarget,
         '/profile': backendTarget,
         '/memory': backendTarget,
         '/chat': backendTarget,

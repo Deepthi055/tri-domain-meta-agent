@@ -152,6 +152,43 @@ export interface AssessmentHistoryItem {
   assessed_at: string
 }
 
+export interface CareerAssessmentResponse {
+  assessment_id: string
+  domain: 'career'
+  assessment_type: 'target_role_skill_match'
+  value: number
+  value_kind: 'score'
+  target_role: string | null
+  assessed_at: string
+  source: string
+  calculation_version: string
+  details: {
+    matched_skills: string[]
+    missing_skills: string[]
+    total_required_skills: number
+  }
+}
+
+export interface HealthAssessmentRequest {
+  sleep_quality: number
+  stress_level: number
+  mood_score: number
+  active_days_per_week: number
+}
+
+export interface HealthAssessmentResponse {
+  assessment_id: string
+  domain: 'health'
+  assessment_type: 'fitness'
+  value: number
+  value_kind: 'score'
+  target_role: null
+  assessed_at: string
+  source: string
+  calculation_version: string
+  details: Record<string, unknown>
+}
+
 export interface QueryRequest {
   name: string
   age: number
