@@ -38,8 +38,8 @@ import { Badge } from '@/components/ui/badge'
 import { ROUTES } from '@/utils/constants'
 import { activityIcons, domainIcons } from '@/utils/navigation'
 import { formatRelativeDate } from '@/utils'
-import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights, buildDashboardTrendValues } from '@/utils/profileInsights'
-import { hasProfileData } from '@/utils/profileInsights'
+import { calculateDomainScores, buildDashboardActivity, buildDashboardInsights } from '@/utils/profileInsights'
+import type { AssessmentHistoryItem } from '@/types'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -58,18 +58,12 @@ export function DashboardPage() {
   const recentMemories = memories?.slice(0, 2) ?? []
   const latestReports = reports?.slice(0, 1) ?? []
   const recentActivities = useMemo(() => buildDashboardActivity(profile, conversations, memories, reports), [profile, conversations, memories, reports])
-  const profileHasData = hasProfileData(profile)
-  const chartData = useMemo(() => {
-    if (!profileHasData) return []
-
-    const baseCareer = Math.max(0, Math.min(100, domainScores.career))
-    const baseHealth = Math.max(0, Math.min(100, domainScores.health))
-    const baseFinance = Math.max(0, Math.min(100, domainScores.finance))
-
-    return [
-      { month: 'Current', career: baseCareer, health: baseHealth, finance: baseFinance },
-    ]
-  }, [domainScores, profileHasData])
+  const chartData = useMemo(() => (assessmentHistory ?? []).map((assessment: AssessmentHistoryItem) => ({
+    month: new Date(assessment.assessed_at).toLocaleDateString(),
+    career: assessment.domain === 'career' ? assessment.value : undefined,
+    health: assessment.domain === 'health' ? assessment.value : undefined,
+    finance: assessment.domain === 'finance' ? assessment.value : undefined,
+  })), [assessmentHistory])
 
   const handleQuickSearch = () => {
     if (searchQuery.trim()) {
@@ -159,7 +153,6 @@ export function DashboardPage() {
           value={domainScores.overall ?? 'Not enough data'}
           subtitle="Across all domains"
           icon={TrendingUp}
-          trend={profileHasData ? { value: trendValues.overall, label: 'profile completion' } : undefined}
           gradient="from-emerald-500 to-teal-500"
         />
         <MetricCard
@@ -224,43 +217,51 @@ export function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ChartCard title="Domain Progress" description={profileHasData ? 'Current profile snapshot' : 'No data available'}>
-          {chartData.length ? (
+        <ChartCard title="Domain Progress" description="Recorded assessment history">
+          {isAssessmentHistoryLoading ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              Loading assessment history...
+            </div>
+          ) : isAssessmentHistoryError ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              Unable to load assessment history.
+            </div>
+          ) : chartData.length === 0 ? (
+            <div className="flex h-[250px] items-center justify-center text-sm text-muted-foreground">
+              No assessment history yet
+            </div>
+          ) : (
             <ResponsiveContainer width="100%" height={250}>
               <AreaChart data={chartData}>
-              <defs>
-                <linearGradient id="careerGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                </linearGradient>
-                <linearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-              />
-              <Area type="monotone" dataKey="career" stroke="#3b82f6" fill="url(#careerGrad)" strokeWidth={2} />
-              <Area type="monotone" dataKey="health" stroke="#10b981" fill="url(#healthGrad)" strokeWidth={2} />
-                <Area type="monotone" dataKey="finance" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} />
+                <defs>
+                  <linearGradient id="careerGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="healthGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="financeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="month" className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <YAxis className="text-xs" tick={{ fill: 'hsl(var(--muted-foreground))' }} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '8px',
+                  }}
+                />
+                <Area type="monotone" dataKey="career" name="Career skill match score" stroke="#3b82f6" fill="url(#careerGrad)" strokeWidth={2} connectNulls={false} />
+                <Area type="monotone" dataKey="health" name="Health fitness score" stroke="#10b981" fill="url(#healthGrad)" strokeWidth={2} connectNulls={false} />
+                <Area type="monotone" dataKey="finance" name="Finance savings rate" stroke="#f59e0b" fill="url(#financeGrad)" strokeWidth={2} connectNulls={false} />
               </AreaChart>
             </ResponsiveContainer>
-          ) : (
-            <div className="flex h-[250px] items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 text-sm text-muted-foreground">
-              No data available. Complete your profile to view chart trends.
-            </div>
           )}
         </ChartCard>
 
@@ -302,37 +303,29 @@ export function DashboardPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-3">
           <h3 className="font-semibold">Recent Conversations</h3>
-          {recentConversations.length ? recentConversations.map((conv) => (
+          {recentConversations.map((conv) => (
             <ConversationCard
               key={conv.id}
               conversation={conv}
               onClick={() => navigate(ROUTES.CHAT, { state: { conversationId: conv.id } })}
             />
-          )) : <EmptyState text="No information available. Complete your profile or start a conversation." />}
+          ))}
         </div>
 
         <div className="space-y-3">
           <h3 className="font-semibold">Latest Memories</h3>
-          {recentMemories.length ? recentMemories.map((mem) => (
+          {recentMemories.map((mem) => (
             <MemoryCard key={mem.id} memory={mem} />
-          )) : <EmptyState text="No information available. Complete your profile to save insights." />}
+          ))}
         </div>
 
         <div className="space-y-3">
           <h3 className="font-semibold">Latest Report</h3>
-          {latestReports.length ? latestReports.map((report) => (
+          {latestReports.map((report) => (
             <ReportCard key={report.id} report={report} />
-          )) : <EmptyState text="No information available. Complete your profile to generate reports." />}
+          ))}
         </div>
       </div>
-    </div>
-  )
-}
-
-function EmptyState({ text }: { text: string }) {
-  return (
-    <div className="flex min-h-28 items-center justify-center rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-sm text-muted-foreground">
-      {text}
     </div>
   )
 }

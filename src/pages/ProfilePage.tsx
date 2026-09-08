@@ -21,22 +21,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import type { FullProfile } from '@/types'
 
 const optionalNumber = (schema: z.ZodNumber) =>
-  z.preprocess((value) => {
-    if (value === '' || value === null || value === undefined) return undefined
-    if (typeof value === 'string') {
-      const trimmed = value.trim()
-      return trimmed ? Number(trimmed) : undefined
-    }
-    return value
-  }, schema.optional())
+  z.preprocess((value) => value === '' || value === null ? undefined : value, schema.optional())
 
 const profileSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   general: z.object({
-    age: optionalNumber(z.number().min(1).max(120)),
+    age: optionalNumber(z.coerce.number().min(1).max(120)),
     gender: z.string().optional(),
-    height_cm: optionalNumber(z.number().min(50).max(300)),
-    weight_kg: optionalNumber(z.number().min(20).max(500)),
+    height_cm: optionalNumber(z.coerce.number().min(50).max(300)),
+    weight_kg: optionalNumber(z.coerce.number().min(20).max(500)),
     location: z.string().optional(),
   }).optional(),
   career: z.object({
@@ -52,17 +45,17 @@ const profileSchema = z.object({
     medical_conditions: z.string().optional(),
     lifestyle: z.string().optional(),
     fitness_goal: z.string().optional(),
-    sleep_hours: optionalNumber(z.number().min(0)),
-    sleep_quality: optionalNumber(z.number().min(0).max(10)),
+    sleep_hours: z.coerce.number().optional(),
+    sleep_quality: z.coerce.number().optional(),
     diet_preference: z.string().optional(),
     workout: z.string().optional(),
     health_goals: z.string().optional(),
-    water_intake: optionalNumber(z.number().min(0)),
+    water_intake: z.coerce.number().optional(),
   }).optional(),
   finance: z.object({
-    monthly_income: optionalNumber(z.number().min(0)),
-    monthly_expenses: optionalNumber(z.number().min(0)),
-    savings_goal: optionalNumber(z.number().min(0)),
+    monthly_income: z.coerce.number().optional(),
+    monthly_expenses: z.coerce.number().optional(),
+    savings_goal: z.coerce.number().optional(),
     investments: z.string().optional(),
     risk_appetite: z.string().optional(),
     investment_experience: z.string().optional(),
@@ -174,10 +167,8 @@ export function ProfilePage() {
   const queryClient = useQueryClient()
   const { data: profile, isLoading, refetch } = useProfile()
 
-  const { register, control, handleSubmit, reset, setValue, setFocus, formState: { isSubmitting, errors } } = useForm<ProfileForm>({
+  const { register, control, handleSubmit, reset, setValue, formState: { isSubmitting, isDirty } } = useForm<ProfileForm>({
     resolver: zodResolver(profileSchema),
-    mode: 'onChange',
-    reValidateMode: 'onChange',
     defaultValues: {
       name: user?.name || '',
       general: {},
@@ -191,7 +182,6 @@ export function ProfilePage() {
   const [hasProfile, setHasProfile] = useState(false)
   const [resumeFileName, setResumeFileName] = useState<string | null>(null)
   const [resumeUploadMessage, setResumeUploadMessage] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'general' | 'career' | 'health' | 'finance'>('general')
 
   const profileHasData = useMemo(() => {
     if (!profile) return false
@@ -291,23 +281,53 @@ export function ProfilePage() {
     }
   }
 
-  const onInvalid = (validationErrors: Record<string, unknown>) => {
-    const invalidFields = collectErrorLabels(validationErrors)
-    const firstInvalid = collectFirstErrorPath(validationErrors)
-
-    if (firstInvalid) {
-      const topLevelTab = firstInvalid.split('.')[0] as 'general' | 'career' | 'health' | 'finance'
-      if (topLevelTab && topLevelTab !== activeTab) {
-        setActiveTab(topLevelTab)
+  const onInvalid = (errors: unknown) => {
+    const walkErrors = (node: unknown, path = 'form') => {
+      if (!node || typeof node !== 'object') {
+        return
       }
-      setFocus(firstInvalid as never)
+
+      if ('type' in (node as Record<string, unknown>) && 'message' in (node as Record<string, unknown>)) {
+        const fieldError = node as {
+          type?: string
+          message?: string
+          ref?: { name?: string; value?: unknown }
+          value?: unknown
+          types?: Record<string, string>
+        }
+
+        console.error(`[Profile validation] ${path}`, {
+          type: fieldError.type,
+          message: fieldError.message,
+          refName: fieldError.ref?.name,
+          value: fieldError.ref?.value ?? fieldError.value,
+          types: fieldError.types,
+        })
+        return
+      }
+
+      Object.entries(node as Record<string, unknown>).forEach(([key, value]) => {
+        const nextPath = path === 'form' ? key : `${path}.${key}`
+
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          walkErrors(value, nextPath)
+          return
+        }
+
+        if (Array.isArray(value)) {
+          value.forEach((item, index) => {
+            walkErrors(item, `${nextPath}[${index}]`)
+          })
+          return
+        }
+
+        console.error(`[Profile validation] ${nextPath}`, value)
+      })
     }
 
-    toast.error(
-      invalidFields.length
-        ? `Please fix: ${invalidFields.join(', ')}`
-        : 'Please fix the highlighted fields before saving your profile.',
-    )
+    console.error('Profile validation errors:')
+    walkErrors(errors)
+    toast.error('Please correct the highlighted profile fields.')
   }
 
   const handleAvatarUpload = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -464,7 +484,7 @@ export function ProfilePage() {
       ) : null}
 
       <form id="profileForm" onSubmit={handleSubmit(onSubmit, onInvalid)}>
-        <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as 'general' | 'career' | 'health' | 'finance'); setSaveMessage(null) }}>
+        <Tabs defaultValue="general" onValueChange={() => setSaveMessage(null)}>
           <TabsList className="mb-6">
             <TabsTrigger value="general">Personal</TabsTrigger>
             <TabsTrigger value="career">Career</TabsTrigger>
@@ -643,10 +663,6 @@ export function ProfilePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Fitness Goal</Label>
-                  <Input {...register('health.fitness_goal')} placeholder="e.g. lose weight, build stamina" />
-                </div>
-                <div className="space-y-2">
                   <Label>Sleep Hours</Label>
                   <Input type="number" step="0.5" min="0" {...register('health.sleep_hours')} />
                 </div>
@@ -785,34 +801,4 @@ export function ProfilePage() {
       </form>
     </div>
   )
-}
-
-function collectFirstErrorPath(errors: Record<string, unknown>, prefix = ''): string | null {
-  for (const [key, value] of Object.entries(errors)) {
-    const path = prefix ? `${prefix}.${key}` : key
-    if (value && typeof value === 'object' && 'message' in value) return path
-    if (value && typeof value === 'object') {
-      const nested = collectFirstErrorPath(value as Record<string, unknown>, path)
-      if (nested) return nested
-    }
-  }
-  return null
-}
-
-function collectErrorLabels(errors: Record<string, unknown>): string[] {
-  const labels: string[] = []
-
-  const visit = (node: Record<string, unknown>, prefix = '') => {
-    for (const [key, value] of Object.entries(node)) {
-      const path = prefix ? `${prefix}.${key}` : key
-      if (value && typeof value === 'object' && 'message' in value) {
-        labels.push(path.split('.').slice(-1)[0].replace(/_/g, ' '))
-      } else if (value && typeof value === 'object') {
-        visit(value as Record<string, unknown>, path)
-      }
-    }
-  }
-
-  visit(errors)
-  return labels
 }
