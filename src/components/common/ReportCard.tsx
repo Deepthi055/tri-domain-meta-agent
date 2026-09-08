@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Download, FileText, Eye } from 'lucide-react'
+import { Download, FileText, Eye, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,10 +10,11 @@ interface ReportCardProps {
   report: Report
   onDownload?: (id: string) => void
   onPreview?: (id: string) => void
+  onDelete?: (id: string) => void
   status?: 'ready' | 'generating' | 'failed'
 }
 
-export function ReportCard({ report, onDownload, onPreview, status = 'ready' }: ReportCardProps) {
+export function ReportCard({ report, onDownload, onPreview, onDelete, status = 'ready' }: ReportCardProps) {
   const domain = report.report_name.toLowerCase().includes('career')
     ? 'career'
     : report.report_name.toLowerCase().includes('health')
@@ -25,12 +26,22 @@ export function ReportCard({ report, onDownload, onPreview, status = 'ready' }: 
   return (
     <motion.div whileHover={{ y: -2 }} transition={{ duration: 0.2 }}>
       <Card className="group">
-        <CardContent className="p-5">
+        <CardContent className="p-5 relative">
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-2 right-2 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => onDelete(report.id)}
+            >
+              <Trash2 className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
           <div className="flex items-start gap-4">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
               <FileText className="h-6 w-6 text-primary" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 pr-8">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold truncate">{report.report_name}</h3>
                 {domain !== 'default' && (

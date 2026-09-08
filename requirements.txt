@@ -16,6 +16,8 @@ python-multipart==0.0.9
 email-validator==2.3.0
 fastapi==0.121.0
 uvicorn==0.27.0
+langchain-groq==1.1.3
+langgraph==0.6.7
 
 # Optional RAG / analytics dependencies
 # Install separately when using retrieval or vector search features
