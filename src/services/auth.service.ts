@@ -55,15 +55,15 @@ export const authService = {
   },
 
   saveToken(token: Token): void {
-    localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token.access_token)
+    sessionStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token.access_token)
   },
 
   saveUser(user: User): void {
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
+    sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user))
   },
 
   getStoredUser(): User | null {
-    const raw = localStorage.getItem(STORAGE_KEYS.USER)
+    const raw = sessionStorage.getItem(STORAGE_KEYS.USER)
     if (!raw) return null
     try {
       return JSON.parse(raw) as User
@@ -73,9 +73,9 @@ export const authService = {
   },
 
   clearStorage(): void {
-    localStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
-    localStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
-    localStorage.removeItem(STORAGE_KEYS.USER)
+    sessionStorage.removeItem(STORAGE_KEYS.ACCESS_TOKEN)
+    sessionStorage.removeItem(STORAGE_KEYS.REFRESH_TOKEN)
+    sessionStorage.removeItem(STORAGE_KEYS.USER)
   },
 
   logout(): void {
@@ -83,6 +83,6 @@ export const authService = {
   },
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
+    return !!sessionStorage.getItem(STORAGE_KEYS.ACCESS_TOKEN)
   },
 }

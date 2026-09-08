@@ -1,36 +1,22 @@
-import { motion } from 'framer-motion'
 import {
-  Award,
   BookOpen,
-  Briefcase,
   DollarSign,
-  Map,
-  Target,
   TrendingUp,
 } from 'lucide-react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
-import { ChartCard } from '@/components/common/ChartCard'
 import { StatCard } from '@/components/common/StatCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
+import { Button } from '@/components/ui/button'
 import { useMemo } from 'react'
-import { useProfile } from '@/hooks'
+import { useCareerAssessment, useProfile } from '@/hooks'
+import { getErrorMessage } from '@/services'
 import { formatCurrency } from '@/utils'
 import { calculateDomainScores, buildCareerPageData } from '@/utils/profileInsights'
 
 export function CareerPage() {
   const { data: profile } = useProfile()
+  const careerAssessment = useCareerAssessment()
   const careerData = useMemo(() => buildCareerPageData(profile), [profile])
   const { skills, roadmap, salaryPrediction, certifications, jobRecommendations, progressData } = careerData
   const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
@@ -62,7 +48,7 @@ export function CareerPage() {
         <MetricCard
           title="Skills Tracked"
           value={skills.length}
-          subtitle="Across categories"
+          subtitle="Saved current skills"
           icon={BookOpen}
           gradient="from-emerald-500 to-teal-500"
         />
@@ -81,6 +67,47 @@ export function CareerPage() {
           gradient="from-purple-500 to-pink-500"
         />
       </div>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between gap-4">
+          <div>
+            <CardTitle className="text-base">Target-Role Skill Match</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">Check your saved skills against your target role.</p>
+          </div>
+          <Button
+            variant="gradient"
+            onClick={() => careerAssessment.mutate()}
+            disabled={careerAssessment.isPending}
+          >
+            {careerAssessment.isPending ? 'Checking...' : 'Check Skill Match'}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {careerAssessment.isError && (
+            <p className="text-sm text-destructive">{getErrorMessage(careerAssessment.error)}</p>
+          )}
+          {careerAssessment.data && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <p className="text-xs text-muted-foreground">Target Role</p>
+                <p className="font-semibold capitalize">{careerAssessment.data.target_role}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Skill Match</p>
+                <p className="text-xl font-bold">{careerAssessment.data.value}%</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Matched Skills</p>
+                <p className="text-sm">{careerAssessment.data.details.matched_skills.join(', ') || 'None'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Missing Skills</p>
+                <p className="text-sm">{careerAssessment.data.details.missing_skills.join(', ') || 'None'}</p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
@@ -109,10 +136,7 @@ export function CareerPage() {
 
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Map className="h-4 w-4 text-primary" />
-                Career Roadmap
-              </CardTitle>
+              <CardTitle className="text-base">Skill Progress</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
               {roadmap.map((phase, i) => (
@@ -141,12 +165,10 @@ export function CareerPage() {
               {!roadmap.length && <EmptyState text="No information available. Complete your profile to see a roadmap." />}
             </CardContent>
           </Card>
-        </div>
 
-        <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Skills</CardTitle>
+              <CardTitle className="text-base">Career Roadmap</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {skills.map((skill) => (
@@ -162,13 +184,12 @@ export function CareerPage() {
               {!skills.length && <EmptyState text="No information available. Complete your profile to see skills." />}
             </CardContent>
           </Card>
+        </div>
 
+        <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Award className="h-4 w-4 text-primary" />
-                Certifications
-              </CardTitle>
+              <CardTitle className="text-base">Skills</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               {certifications.map((cert) => (

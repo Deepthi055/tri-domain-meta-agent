@@ -1,3 +1,7 @@
+import re
+from pathlib import Path
+
+
 def calculate_bmi(weight_kg: float, height_cm: float) -> dict:
     height_m = height_cm / 100
     bmi = weight_kg / (height_m ** 2)
@@ -21,47 +25,1184 @@ def calculate_debt_ratio(income: float, expenses: float) -> dict:
     status = "healthy" if ratio < 0.5 else "concerning"
     return {"debt_to_income_ratio": round(ratio, 2), "status": status}
 
-def skill_gap_analyzer(current_skills: list, target_role: str) -> dict:
-    required_skills = {
-        "data scientist": {
-            "python": 4,
-            "sql": 3,
-            "machine learning": 4,
-            "statistics": 3,
-            "data visualization": 3
-        },
-        "web developer": {
-            "html": 3,
-            "css": 3,
-            "javascript": 4,
-            "react": 3,
-            "nodejs": 3
-        },
-        "devops engineer": {
-            "linux": 4,
-            "docker": 3,
-            "kubernetes": 3,
-            "ci/cd": 3,
-            "aws": 3
-        }
+def _normalize_skill_name(skill: str) -> str:
+    cleaned = " ".join(str(skill).strip().lower().split())
+    cleaned = cleaned.replace("&", " and ")
+    cleaned = re.sub(r"[^a-z0-9 +/\-]", "", cleaned)
+    cleaned = " ".join(cleaned.split())
+    return cleaned
+
+
+def _canonicalize_skill(skill: str) -> str:
+    normalized = _normalize_skill_name(skill)
+    if not normalized:
+        return ""
+
+    if normalized.startswith("python"):
+        return "python"
+    if "sql" in normalized:
+        return "sql"
+    if "machine learning" in normalized or "ml" in normalized:
+        return "machine learning"
+    if "statistics" in normalized or "probability" in normalized:
+        return "statistics"
+    if "data visualization" in normalized or "tableau" in normalized or "power bi" in normalized or "matplotlib" in normalized:
+        return "data visualization"
+    if "deep learning" in normalized or "neural network" in normalized or "tensorflow" in normalized or "pytorch" in normalized:
+        return "deep learning"
+    if "kubernetes" in normalized:
+        return "kubernetes"
+    if "ci and cd" in normalized or "ci/cd" in normalized or "continuous integration" in normalized or "continuous delivery" in normalized:
+        return "ci/cd"
+    if "aws" in normalized or "azure" in normalized or "gcp" in normalized or "cloud" in normalized:
+        return "aws"
+    if "docker" in normalized:
+        return "docker"
+    if "react" in normalized:
+        return "react"
+    if "nodejs" in normalized or "node js" in normalized:
+        return "nodejs"
+    if "javascript" in normalized:
+        return "javascript"
+    if "html" in normalized:
+        return "html"
+    if "css" in normalized:
+        return "css"
+    if "linux" in normalized:
+        return "linux"
+    if "excel" in normalized:
+        return "excel"
+    if "communication" in normalized:
+        return "communication"
+    if "rest api" in normalized or "api" in normalized:
+        return "rest api"
+    if "leadership" in normalized:
+        return "leadership"
+    if "django" in normalized:
+        return "django"
+    return normalized
+
+
+def _coerce_required_skills(value: object) -> list[str]:
+    if value is None:
+        return []
+
+    if isinstance(value, str):
+        candidates = re.split(r"[,;\n]+", value)
+    elif isinstance(value, (list, tuple, set)):
+        candidates = value
+    elif isinstance(value, dict):
+        for key in ("required_skills", "skills", "core_skills", "essential_skills"):
+            if key in value:
+                return _coerce_required_skills(value[key])
+        candidates = []
+        for nested in value.values():
+            if isinstance(nested, (list, tuple, set)):
+                candidates.extend(list(nested))
+    else:
+        return []
+
+    parsed: list[str] = []
+    for item in candidates:
+        if isinstance(item, dict):
+            for key in ("skill", "name", "title", "value"):
+                if key in item and isinstance(item[key], str):
+                    skill = _canonicalize_skill(item[key])
+                    if skill and skill not in parsed:
+                        parsed.append(skill)
+                    break
+            continue
+        if not isinstance(item, str):
+            continue
+        for raw_skill in re.split(r"[\n,;]+", item):
+            skill = _canonicalize_skill(raw_skill)
+            if skill and skill not in parsed:
+                parsed.append(skill)
+
+    return parsed
+
+
+# def _extract_skills_from_career_knowledge(text: str, role: str) -> list[str]:
+#     if not text:
+#         return []
+
+#     sections = re.split(r"\n---\n", text)
+#     preferred: list[str] = []
+
+#     for section in sections:
+#         lowered = section.lower()
+#         if "most in-demand skills" not in lowered and "essential skills" not in lowered:
+#             continue
+
+#         marker_positions = [
+#             position
+#             for marker in ("most in-demand skills", "essential skills")
+#             for position in [lowered.find(marker)]
+#             if position >= 0
+#         ]
+#         skills_text = section[min(marker_positions):]
+#         numbered_items = re.finditer(
+#             r"(?:^|\s)\d+\.\s*(.*?)(?=\s+\d+\.\s+|$)",
+#             skills_text,
+#             flags=re.DOTALL,
+#         )
+#         for match in numbered_items:
+#             skill_name = match.group(1).strip()
+#             skill = _canonicalize_skill(skill_name)
+#             if skill and skill not in preferred:
+#                 preferred.append(skill)
+#             if len(preferred) >= 5:
+#                 break
+#         if preferred:
+#             break
+
+#     if role in {"data scientist", "data science"}:
+#         core = [
+#             "python",
+#             "sql",
+#             "machine learning",
+#             "statistics",
+#             "data visualization",
+#         ]
+#         if preferred:
+#             return [skill for skill in core if skill in preferred]
+#         return core
+
+#     return preferred[:5]
+
+# def _extract_skills_from_career_knowledge(text: str, role: str) -> list[str]:
+#     """
+#     Extract required skills from career knowledge retrieved for a target role.
+
+#     This function is role-generic:
+#     - No hardcoded job-role skill lists.
+#     - Prefers sections that explicitly mention the target role.
+#     - Extracts skills from numbered or bullet-point skill sections.
+#     - Does not assume that the first skill section belongs to the target role.
+#     """
+
+#     if not text or not text.strip():
+#         return []
+
+#     role_normalized = _normalize_skill_name(role)
+
+#     # Split the RAG context into separate documents/sections.
+#     sections = [
+#         section.strip()
+#         for section in re.split(r"\n\s*---\s*\n", text)
+#         if section.strip()
+#     ]
+
+#     if not sections:
+#         sections = [text.strip()]
+
+#     # Words/phrases indicating that a section contains skills.
+#     skill_markers = (
+#         "most in-demand skills",
+#         "essential skills",
+#         "required skills",
+#         "key skills",
+#         "core skills",
+#         "technical skills",
+#         "skills required",
+#         "skills needed",
+#         "important skills",
+#         "competencies",
+#     )
+
+#     # ---------------------------------------------------------
+#     # Find sections relevant to the requested role
+#     # ---------------------------------------------------------
+
+#     role_sections = []
+
+#     role_words = [
+#         word
+#         for word in re.findall(r"[a-z0-9]+", role_normalized)
+#         if len(word) > 2
+#     ]
+
+#     for section in sections:
+#         lowered = section.lower()
+#         normalized_section = _normalize_skill_name(lowered)
+
+#         # The section must contain a skill-related marker.
+#         if not any(marker in lowered for marker in skill_markers):
+#             continue
+
+#         # Prefer exact role phrase match.
+#         if role_normalized and role_normalized in normalized_section:
+#             role_sections.append(section)
+#             continue
+
+#         # Also support multi-word roles.
+#         if role_words and all(word in lowered for word in role_words):
+#             role_sections.append(section)
+
+#     # If a role-specific section exists, use it.
+#     # Otherwise use the retrieved RAG context.
+#     candidate_sections = (
+#         role_sections
+#         if role_sections
+#         else sections
+#     )
+
+#     extracted = []
+
+#     # ---------------------------------------------------------
+#     # Extract numbered skill lists
+#     # ---------------------------------------------------------
+
+#     for section in candidate_sections:
+
+#         lowered = section.lower()
+
+#         marker_positions = [
+#             lowered.find(marker)
+#             for marker in skill_markers
+#             if lowered.find(marker) >= 0
+#         ]
+
+#         if not marker_positions:
+#             continue
+
+#         # Start extracting from the skill-related heading.
+#         start_position = min(marker_positions)
+#         skills_text = section[start_position:]
+
+#         numbered_matches = re.finditer(
+#             r"(?:^|\n|\s)(\d+)\.\s*(.*?)(?=(?:\n|\s)\d+\.\s+|$)",
+#             skills_text,
+#             flags=re.DOTALL,
+#         )
+
+#         for match in numbered_matches:
+
+#             raw_skill = match.group(2).strip()
+
+#             # Remove descriptions after the actual skill.
+#             #
+#             # Example:
+#             # Python programming — required by 95%...
+#             #
+#             # becomes:
+#             # Python programming
+#             raw_skill = re.split(
+#                 r"\s+[—–-]\s+|\s+\(\s*required|\s+required by",
+#                 raw_skill,
+#                 maxsplit=1,
+#                 flags=re.IGNORECASE,
+#             )[0].strip()
+
+#             skill = _canonicalize_skill(raw_skill)
+
+#             if skill and skill not in extracted:
+#                 extracted.append(skill)
+
+#         if extracted:
+#             break
+
+#     # ---------------------------------------------------------
+#     # Extract bullet-point skills if numbered extraction failed
+#     # ---------------------------------------------------------
+
+#     if not extracted:
+
+#         for section in candidate_sections:
+
+#             lowered = section.lower()
+
+#             if not any(marker in lowered for marker in skill_markers):
+#                 continue
+
+#             bullet_matches = re.finditer(
+#                 r"(?:^|\n)\s*[-*•]\s*(.+?)(?=\n|$)",
+#                 section,
+#                 flags=re.DOTALL,
+#             )
+
+#             for match in bullet_matches:
+
+#                 raw_skill = match.group(1).strip()
+
+#                 raw_skill = re.split(
+#                     r"\s+[—–-]\s+|\s+\(\s*required|\s+required by",
+#                     raw_skill,
+#                     maxsplit=1,
+#                     flags=re.IGNORECASE,
+#                 )[0].strip()
+
+#                 skill = _canonicalize_skill(raw_skill)
+
+#                 if skill and skill not in extracted:
+#                     extracted.append(skill)
+
+#     # Return at most five skills.
+#     return extracted[:5]
+
+
+# def skill_gap_analyzer(current_skills: list, target_role: str) -> dict:
+#     """
+#     Compare the user's current skills against the skills required
+#     for the requested target role.
+
+#     Required skills are determined dynamically from the existing
+#     career RAG knowledge base.
+
+#     No specific job roles are hardcoded.
+#     """
+
+#     # ---------------------------------------------------------
+#     # Validate target role
+#     # ---------------------------------------------------------
+
+#     if target_role is None:
+#         return {
+#             "error": (
+#                 "Please provide or clarify the target role "
+#                 "before assessing career skills."
+#             )
+#         }
+
+#     role = " ".join(
+#         str(target_role).strip().lower().split()
+#     )
+
+#     if not role:
+#         return {
+#             "error": (
+#                 "Please provide or clarify the target role "
+#                 "before assessing career skills."
+#             )
+#         }
+
+#     # ---------------------------------------------------------
+#     # Normalize user's current skills
+#     # ---------------------------------------------------------
+
+#     current = []
+
+#     for skill in current_skills or []:
+
+#         if not isinstance(skill, str):
+#             continue
+
+#         if not skill.strip():
+#             continue
+
+#         normalized_skill = _canonicalize_skill(skill)
+
+#         if normalized_skill and normalized_skill not in current:
+#             current.append(normalized_skill)
+
+#     if not current:
+#         return {
+#             "error": (
+#                 "Please add at least one current skill "
+#                 "before assessing a target role."
+#             )
+#         }
+
+#     # ---------------------------------------------------------
+#     # Retrieve role-specific knowledge using existing RAG
+#     # ---------------------------------------------------------
+
+#     knowledge_text = ""
+
+#     try:
+#         from rag.retriever import retrieve_as_context
+
+#         knowledge_text = retrieve_as_context(
+#             (
+#                 f"required skills, essential skills, "
+#                 f"key skills, core skills, and competencies "
+#                 f"for {role}"
+#             ),
+#             domain="career",
+#             top_k=5,
+#         ) or ""
+
+#     except Exception:
+#         knowledge_text = ""
+
+#     # ---------------------------------------------------------
+#     # Fallback to complete career knowledge base
+#     # ---------------------------------------------------------
+
+#     if not knowledge_text:
+
+#         try:
+#             kb_path = (
+#                 Path(__file__).resolve().parent.parent
+#                 / "rag"
+#                 / "knowledge_base"
+#                 / "career_kb.txt"
+#             )
+
+#             knowledge_text = kb_path.read_text(
+#                 encoding="utf-8"
+#             )
+
+#         except Exception:
+#             knowledge_text = ""
+
+#     # ---------------------------------------------------------
+#     # Extract skills from retrieved career knowledge
+#     # ---------------------------------------------------------
+
+#     required_skills = _extract_skills_from_career_knowledge(
+#         knowledge_text,
+#         role,
+#     )
+
+#     # ---------------------------------------------------------
+#     # LLM fallback
+#     # ---------------------------------------------------------
+
+#     if not required_skills:
+
+#         try:
+#             from core.llm_client import call_llm
+
+#             prompt = f"""
+# Extract the required skills for the target role from the
+# career knowledge provided below.
+
+# Target role:
+# {role}
+
+# Career knowledge:
+# {knowledge_text or "No career knowledge was retrieved."}
+
+# Rules:
+
+# 1. Return valid JSON only.
+
+# 2. Use exactly this structure:
+
+# {{
+#     "required_skills": [
+#         "skill1",
+#         "skill2",
+#         "skill3"
+#     ]
+# }}
+
+# 3. Only return skills explicitly supported by the
+#    provided career knowledge.
+
+# 4. Do not use outside knowledge.
+
+# 5. Do not hallucinate skills.
+
+# 6. Do not return vague concepts such as:
+#    - career growth
+#    - success
+#    - hard work
+#    - problem solving
+
+#    unless they are explicitly presented as skills
+#    in the retrieved knowledge.
+
+# 7. Normalize skill names to lowercase.
+
+# 8. Prefer specific technical or professional skills.
+
+# 9. Return at most 5 skills.
+
+# 10. If the retrieved knowledge does not contain
+#     enough information about the target role, return:
+
+# {{
+#     "required_skills": []
+# }}
+# """
+
+#             llm_result = call_llm(
+#                 (
+#                     "You are a career skill extraction assistant. "
+#                     "Extract only skills supported by the "
+#                     "provided career knowledge."
+#                 ),
+#                 prompt,
+#                 temperature=0.1,
+#             )
+
+#             if isinstance(llm_result, dict):
+
+#                 llm_skills = _coerce_required_skills(
+#                     llm_result.get("required_skills")
+#                 )
+
+#                 if llm_skills:
+
+#                     normalized_knowledge = (
+#                         _normalize_skill_name(
+#                             knowledge_text
+#                         )
+#                     )
+
+#                     grounded = []
+
+#                     for skill in llm_skills:
+
+#                         skill_normalized = (
+#                             _normalize_skill_name(skill)
+#                         )
+
+#                         if (
+#                             skill_normalized
+#                             and skill_normalized
+#                             in normalized_knowledge
+#                         ):
+#                             if skill not in grounded:
+#                                 grounded.append(skill)
+
+#                     required_skills = grounded[:5]
+
+#         except Exception:
+#             required_skills = []
+
+#     # ---------------------------------------------------------
+#     # No reliable required skills found
+#     # ---------------------------------------------------------
+
+#     if not required_skills:
+
+#         return {
+#             "error": (
+#                 f"I couldn't reliably determine the required "
+#                 f"skills for '{target_role}'. Please provide "
+#                 f"or clarify the target role."
+#             ),
+#             "target_role": role,
+#             "current_skills": current,
+#         }
+
+#     # ---------------------------------------------------------
+#     # Remove duplicates
+#     # ---------------------------------------------------------
+
+#     required = list(
+#         dict.fromkeys(required_skills)
+#     )
+
+#     # ---------------------------------------------------------
+#     # Compare current skills against required skills
+#     # ---------------------------------------------------------
+
+#     matched_skills = [
+#         skill
+#         for skill in required
+#         if skill in current
+#     ]
+
+#     missing_skills = [
+#         skill
+#         for skill in required
+#         if skill not in current
+#     ]
+
+#     # ---------------------------------------------------------
+#     # Calculate percentage
+#     # ---------------------------------------------------------
+
+#     total_required = len(required)
+
+#     match_percentage = (
+#         round(
+#             (len(matched_skills) / total_required) * 100,
+#             1,
+#         )
+#         if total_required
+#         else 0
+#     )
+
+#     # ---------------------------------------------------------
+#     # Determine status
+#     # ---------------------------------------------------------
+
+#     if match_percentage >= 80:
+#         status = "strong match"
+
+#     elif match_percentage >= 50:
+#         status = "needs work"
+
+#     else:
+#         status = "significant gaps"
+
+#     # ---------------------------------------------------------
+#     # Return result
+#     # ---------------------------------------------------------
+
+#     return {
+#         "target_role": role,
+#         "current_skills": current,
+#         "matched_skills": matched_skills,
+#         "missing_skills": missing_skills,
+#         "total_required_skills": total_required,
+#         "match_percentage": match_percentage,
+#         "status": status,
+#     }
+
+
+# def skill_gap_analyzer(current_skills: list, target_role: str) -> dict:
+#     if target_role is None:
+#         return {"error": "Please provide or clarify the target role before assessing career skills."}
+
+#     role = " ".join(str(target_role).strip().lower().split())
+#     current = [
+#         _normalize_skill_name(skill)
+#         for skill in current_skills or []
+#         if isinstance(skill, str) and skill.strip()
+#     ]
+#     current = list(dict.fromkeys(current))
+
+#     if not role:
+#         return {"error": "Please provide or clarify the target role before assessing career skills."}
+#     if not current:
+#         return {"error": "Please add at least one current skill before assessing a target role."}
+
+#     knowledge_text = ""
+#     try:
+#         from rag.retriever import retrieve_as_context
+#         knowledge_text = retrieve_as_context(f"required skills for {role} role", domain="career", top_k=5) or ""
+#     except Exception:
+#         knowledge_text = ""
+
+#     if not knowledge_text:
+#         try:
+#             from pathlib import Path
+#             kb_path = Path(__file__).resolve().parent.parent / "rag" / "knowledge_base" / "career_kb.txt"
+#             knowledge_text = kb_path.read_text(encoding="utf-8")
+#         except Exception:
+#             knowledge_text = ""
+
+#     required_skills = _extract_skills_from_career_knowledge(knowledge_text, role)
+
+#     if not required_skills:
+#         try:
+#             from core.llm_client import call_llm
+#             prompt = (
+#                 "Use the career knowledge below to extract the most clearly required skills for the target role. "
+#                 "Return valid JSON only with a field named 'required_skills' that contains a list of lowercase skill names. "
+#                 "Do not hallucinate. Do not include vague items. If the knowledge is insufficient, return {'required_skills': []}.\n\n"
+#                 f"Target role: {role}\n\nCareer knowledge:\n{knowledge_text or 'No knowledge retrieved.'}"
+#             )
+#             llm_result = call_llm(
+#                 "You are a career skills extraction assistant. Return only valid JSON.",
+#                 prompt,
+#                 temperature=0.2,
+#             )
+#             if isinstance(llm_result, dict):
+#                 llm_skills = _coerce_required_skills(llm_result.get("required_skills"))
+#                 if llm_skills:
+#                     knowledge_tokens = {
+#                         _normalize_skill_name(token)
+#                         for token in re.findall(r"[a-z0-9+/\-]+", knowledge_text.lower())
+#                         if token.strip()
+#                     }
+#                     grounded = [skill for skill in llm_skills if skill and skill in knowledge_tokens]
+#                     if grounded:
+#                         required_skills = grounded
+#         except Exception:
+#             required_skills = []
+
+#     if not required_skills:
+#         return {
+#             "error": f"I couldn't reliably determine the required skills for '{target_role}'. Please provide or clarify the target role.",
+#             "target_role": role,
+#         }
+
+#     required = list(dict.fromkeys(required_skills))
+#     matched_skills = [skill for skill in required if skill in current]
+#     missing = [skill for skill in required if skill not in current]
+
+#     total_required = len(required)
+#     match_pct = round((len(matched_skills) / total_required) * 100, 1) if total_required else 0
+
+#     if match_pct >= 80:
+#         status = "strong match"
+#     elif match_pct >= 50:
+#         status = "needs work"
+#     else:
+#         status = "significant gaps"
+
+#     return {
+#         "target_role": role,
+#         "current_skills": current,
+#         "matched_skills": matched_skills,
+#         "missing_skills": missing,
+#         "total_required_skills": total_required,
+#         "match_percentage": match_pct,
+#         "status": status,
+#     }
+
+def _role_matches_text(text: str, role: str) -> bool:
+    """
+    Check whether a knowledge-base section is actually relevant
+    to the requested target role.
+
+    This prevents a Product Manager query from accidentally using
+    Data Science knowledge just because that knowledge was retrieved
+    by RAG.
+    """
+    if not text or not role:
+        return False
+
+    normalized_text = _normalize_skill_name(text)
+    normalized_role = _normalize_skill_name(role)
+
+    if not normalized_text or not normalized_role:
+        return False
+
+    # Direct phrase match
+    if normalized_role in normalized_text:
+        return True
+
+    # Common role-family variations.
+    # These are role-name variations, NOT skill definitions.
+    role_variants = {
+        "data scientist": ["data science"],
+        "data science": ["data scientist"],
+        "product manager": ["product management"],
+        "product management": ["product manager"],
+        "software engineer": ["software engineering"],
+        "software engineering": ["software engineer"],
+        "data analyst": ["data analytics"],
+        "data analytics": ["data analyst"],
+        "machine learning engineer": [
+            "machine learning engineering",
+            "ml engineer",
+        ],
+        "ai engineer": [
+            "artificial intelligence engineer",
+            "ai engineering",
+        ],
+        "project manager": ["project management"],
+        "business analyst": ["business analysis"],
+        "devops engineer": ["devops engineering"],
     }
 
-    role = target_role.lower()
-    current = [s.lower() for s in current_skills]
+    for variant in role_variants.get(normalized_role, []):
+        if variant in normalized_text:
+            return True
 
-    if role not in required_skills:
+    # Generic token-prefix matching.
+    # Example:
+    # scientist <-> science
+    # manager <-> management
+    # engineer <-> engineering
+    role_tokens = [
+        token
+        for token in normalized_role.split()
+        if len(token) >= 5
+    ]
+
+    if not role_tokens:
+        return False
+
+    text_tokens = set(normalized_text.split())
+
+    matched_tokens = 0
+
+    for role_token in role_tokens:
+        prefix = role_token[:5]
+
+        if any(token.startswith(prefix) for token in text_tokens):
+            matched_tokens += 1
+
+    return matched_tokens == len(role_tokens)
+
+
+def _clean_skill_candidate(candidate: str) -> str:
+    """
+    Clean a skill extracted from a numbered/bullet list.
+    """
+    if not candidate:
+        return ""
+
+    candidate = candidate.strip()
+
+    # Remove common leading phrases.
+    candidate = re.sub(
+        r"^(experience\s+with|proficiency\s+in|knowledge\s+of|"
+        r"strong\s+understanding\s+of|familiarity\s+with|"
+        r"expertise\s+in|skills?\s+in|ability\s+to\s+use)\s+",
+        "",
+        candidate,
+        flags=re.IGNORECASE,
+    )
+
+    # Remove explanatory text after an em/en dash.
+    candidate = re.split(
+        r"\s+[—–]\s+(?:required|preferred|important|recommended|"
+        r"valued|useful|needed)",
+        candidate,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+
+    # Remove explanatory percentage statements.
+    candidate = re.split(
+        r"\s*—?\s*required\s+by\s+\d+%",
+        candidate,
+        maxsplit=1,
+        flags=re.IGNORECASE,
+    )[0]
+
+    return candidate.strip(" .:-")
+
+
+def _extract_skills_from_career_knowledge(
+    knowledge_text: str,
+    target_role: str,
+) -> list[str]:
+    """
+    Extract role-specific skills from career RAG knowledge.
+
+    IMPORTANT:
+    This function never assumes that every piece of retrieved career
+    knowledge belongs to the requested role.
+    """
+
+    if not knowledge_text or not target_role:
+        return []
+
+    # ---------------------------------------------------------
+    # 1. Split RAG output into individual DOCUMENT sections
+    # ---------------------------------------------------------
+    blocks = re.split(
+        r"\n\s*-{3,}\s*\n",
+        knowledge_text,
+    )
+
+    relevant_blocks = []
+
+    for block in blocks:
+        block = block.strip()
+
+        if not block:
+            continue
+
+        if _role_matches_text(block, target_role):
+            relevant_blocks.append(block)
+
+    # If no role-specific block was found, return nothing.
+    # This is intentional — do NOT use unrelated roles.
+    if not relevant_blocks:
+        return []
+
+    relevant_text = "\n".join(relevant_blocks)
+
+    # ---------------------------------------------------------
+    # 2. Only extract from sections that look like skill sections
+    # ---------------------------------------------------------
+    skill_section_patterns = [
+        r"(?is)(?:most\s+in[-\s]?demand\s+skills?|"
+        r"essential\s+skills?|"
+        r"required\s+skills?|"
+        r"core\s+skills?|"
+        r"key\s+skills?|"
+        r"technical\s+skills?|"
+        r"important\s+skills?|"
+        r"skills?\s+required|"
+        r"competencies|"
+        r"qualifications|"
+        r"tools?\s+(?:and|&)\s+technologies)"
+        r"\s*[:\-]?\s*(.*?)(?=\n\s*\n|\Z)",
+    ]
+
+    skill_text_parts = []
+
+    for pattern in skill_section_patterns:
+        matches = re.findall(pattern, relevant_text)
+
+        for match in matches:
+            if isinstance(match, tuple):
+                match = match[-1]
+
+            if isinstance(match, str) and match.strip():
+                skill_text_parts.append(match)
+
+    # If no explicit skill section was detected, use the relevant
+    # role-specific block, because some documents may have a simpler format.
+    if skill_text_parts:
+        extraction_text = "\n".join(skill_text_parts)
+    else:
+        extraction_text = relevant_text
+
+    # ---------------------------------------------------------
+    # 3. Extract numbered skill items
+    # ---------------------------------------------------------
+    candidates = []
+
+    numbered_items = re.findall(
+        r"(?m)^\s*\d+[\.\)]\s*(.+?)(?=\n\s*\d+[\.\)]\s+|\Z)",
+        extraction_text,
+    )
+
+    candidates.extend(numbered_items)
+
+    # ---------------------------------------------------------
+    # 4. Extract bullet-point skill items
+    # ---------------------------------------------------------
+    bullet_items = re.findall(
+        r"(?m)^\s*[-*•]\s*(.+)$",
+        extraction_text,
+    )
+
+    candidates.extend(bullet_items)
+
+    # ---------------------------------------------------------
+    # 5. Extract comma-separated skill lists
+    # ---------------------------------------------------------
+    inline_matches = re.findall(
+        r"(?im)^(?:required|essential|core|key|technical|"
+        r"in[-\s]?demand)\s+(?:skills?|competencies?)\s*[:\-]\s*(.+)$",
+        extraction_text,
+    )
+
+    for match in inline_matches:
+        candidates.extend(
+            re.split(r"[,;]+", match)
+        )
+
+    # ---------------------------------------------------------
+    # 6. Canonicalize + deduplicate
+    # ---------------------------------------------------------
+    parsed_skills = []
+
+    for candidate in candidates:
+        if not isinstance(candidate, str):
+            continue
+
+        cleaned = _clean_skill_candidate(candidate)
+
+        if not cleaned:
+            continue
+
+        skill = _canonicalize_skill(cleaned)
+
+        if not skill:
+            continue
+
+        if skill not in parsed_skills:
+            parsed_skills.append(skill)
+
+    # Keep the list manageable.
+    return parsed_skills[:10]
+
+
+def skill_gap_analyzer(
+    current_skills: list,
+    target_role: str,
+) -> dict:
+    """
+    Compare a user's current skills against the skills required
+    for their target role.
+
+    The required skills must come from role-relevant RAG knowledge.
+    """
+
+    if target_role is None:
         return {
-            "error": f"Role '{target_role}' not found",
-            "available_roles": list(required_skills.keys())
+            "error": (
+                "Please provide or clarify the target role "
+                "before assessing career skills."
+            )
         }
 
-    required = required_skills[role]
+    role = " ".join(
+        str(target_role).strip().lower().split()
+    )
 
-    missing = [skill for skill in required if skill not in current]
+    if not role:
+        return {
+            "error": (
+                "Please provide or clarify the target role "
+                "before assessing career skills."
+            )
+        }
 
-    total = len(required)
-    matched = total - len(missing)
-    match_pct = round((matched / total) * 100, 1)
+    # ---------------------------------------------------------
+    # 1. Normalize USER skills
+    # ---------------------------------------------------------
+    current = []
+
+    for skill in current_skills or []:
+        if not isinstance(skill, str):
+            continue
+
+        if not skill.strip():
+            continue
+
+        canonical = _canonicalize_skill(skill)
+
+        if canonical:
+            if canonical not in current:
+                current.append(canonical)
+
+    if not current:
+        return {
+            "error": (
+                "Please add at least one current skill "
+                "before assessing a target role."
+            )
+        }
+
+    # ---------------------------------------------------------
+    # 2. Retrieve role-specific career knowledge using RAG
+    # ---------------------------------------------------------
+    knowledge_text = ""
+
+    try:
+        from rag.retriever import retrieve_as_context
+
+        knowledge_text = retrieve_as_context(
+            (
+                f"required skills, competencies, qualifications, "
+                f"tools and technologies for the {role} role. "
+                f"Only return career knowledge specifically relevant "
+                f"to the {role} role."
+            ),
+            domain="career",
+            top_k=8,
+        ) or ""
+
+    except Exception:
+        knowledge_text = ""
+
+    # ---------------------------------------------------------
+    # 3. Fallback to local career KB
+    # ---------------------------------------------------------
+    if not knowledge_text:
+        try:
+            kb_path = (
+                Path(__file__).resolve().parent.parent
+                / "rag"
+                / "knowledge_base"
+                / "career_kb.txt"
+            )
+
+            knowledge_text = kb_path.read_text(
+                encoding="utf-8"
+            )
+
+        except Exception:
+            knowledge_text = ""
+
+    # ---------------------------------------------------------
+    # 4. Extract ONLY role-specific skills
+    # ---------------------------------------------------------
+    required_skills = _extract_skills_from_career_knowledge(
+        knowledge_text,
+        role,
+    )
+
+    # ---------------------------------------------------------
+    # 5. LLM fallback
+    # ---------------------------------------------------------
+    if not required_skills:
+        try:
+            from core.llm_client import call_llm
+
+            prompt = (
+                "Extract required skills for the target role "
+                "ONLY from the supplied career knowledge.\n\n"
+                "Important rules:\n"
+                "1. Do not use knowledge belonging to another role.\n"
+                "2. Do not invent skills.\n"
+                "3. Return only skills clearly supported by the knowledge.\n"
+                "4. Return valid JSON only.\n"
+                "5. The JSON must contain a field named "
+                "'required_skills' containing a list of skill names.\n"
+                "6. If the knowledge does not contain enough "
+                "role-specific information, return an empty list.\n\n"
+                f"Target role: {role}\n\n"
+                f"Career knowledge:\n"
+                f"{knowledge_text or 'No knowledge retrieved.'}"
+            )
+
+            llm_result = call_llm(
+                (
+                    "You are a career skills extraction assistant. "
+                    "Return only valid JSON."
+                ),
+                prompt,
+                temperature=0.2,
+            )
+
+            if isinstance(llm_result, dict):
+                llm_skills = _coerce_required_skills(
+                    llm_result.get("required_skills")
+                )
+
+                # Ground every LLM skill in the retrieved knowledge.
+                normalized_knowledge = _normalize_skill_name(
+                    knowledge_text
+                )
+
+                grounded = []
+
+                for skill in llm_skills:
+                    normalized_skill = _normalize_skill_name(skill)
+
+                    if (
+                        normalized_skill
+                        and normalized_skill in normalized_knowledge
+                    ):
+                        if normalized_skill not in grounded:
+                            grounded.append(normalized_skill)
+
+                if grounded:
+                    required_skills = grounded
+
+        except Exception:
+            required_skills = []
+
+    # ---------------------------------------------------------
+    # 6. Do NOT guess when role knowledge is unavailable
+    # ---------------------------------------------------------
+    if not required_skills:
+        return {
+            "error": (
+                f"I couldn't reliably determine the required skills "
+                f"for '{target_role}'. Please provide or clarify "
+                f"the target role."
+            ),
+            "target_role": role,
+        }
+
+    # ---------------------------------------------------------
+    # 7. Compare current skills vs required skills
+    # ---------------------------------------------------------
+    required = list(
+        dict.fromkeys(required_skills)
+    )
+
+    matched_skills = [
+        skill
+        for skill in required
+        if skill in current
+    ]
+
+    missing = [
+        skill
+        for skill in required
+        if skill not in current
+    ]
+
+    total_required = len(required)
+
+    match_pct = (
+        round(
+            (len(matched_skills) / total_required) * 100,
+            1,
+        )
+        if total_required
+        else 0
+    )
 
     if match_pct >= 80:
         status = "strong match"
@@ -73,10 +1214,13 @@ def skill_gap_analyzer(current_skills: list, target_role: str) -> dict:
     return {
         "target_role": role,
         "current_skills": current,
+        "matched_skills": matched_skills,
         "missing_skills": missing,
+        "total_required_skills": total_required,
         "match_percentage": match_pct,
-        "status": status
+        "status": status,
     }
+
 def job_search(skills: list, location: str, experience_level: str) -> dict:
     job_database = [
         {

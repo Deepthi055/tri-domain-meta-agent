@@ -30,6 +30,7 @@ from routes.profile import router as profile_router
 from routes.memory import router as memory_router
 from routes.chat import router as chat_router
 from routes.reports import router as reports_router
+from routes.assessments import router as assessments_router
 
 
 @app.exception_handler(RequestValidationError)
@@ -59,6 +60,7 @@ app.include_router(profile_router)
 app.include_router(memory_router)
 app.include_router(chat_router)
 app.include_router(reports_router)
+app.include_router(assessments_router)
 
 @app.on_event("startup")
 def startup():

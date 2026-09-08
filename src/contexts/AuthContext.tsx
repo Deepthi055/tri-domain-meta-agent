@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { User } from '@/types'
 import { authService } from '@/services'
+import { clearUserQueryCache } from '@/lib/queryClient'
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(fetched)
         } catch {
           authService.clearStorage()
+          clearUserQueryCache()
           setUser(null)
         }
       } else if (stored) {
@@ -39,11 +41,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const login = async (email: string, password: string) => {
-    const token = await authService.login(email, password)
-    authService.saveToken(token)
-    const fetched = await authService.me()
-    authService.saveUser(fetched)
-    setUser(fetched)
+    setUser(null)
+    clearUserQueryCache()
+    try {
+      const token = await authService.login(email, password)
+      authService.saveToken(token)
+      const fetched = await authService.me()
+      authService.saveUser(fetched)
+      setUser(fetched)
+    } catch (error) {
+      authService.clearStorage()
+      clearUserQueryCache()
+      setUser(null)
+      throw error
+    }
   }
 
   const register = async (name: string, email: string, password: string) => {
@@ -52,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     authService.logout()
+    clearUserQueryCache()
     setUser(null)
   }
 

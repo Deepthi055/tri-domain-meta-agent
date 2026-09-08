@@ -1,39 +1,26 @@
 import { motion } from 'framer-motion'
 import {
   Activity,
-  Droplets,
-  Flame,
-  Heart,
   Moon,
   Scale,
   Utensils,
   Dumbbell,
 } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
-import { ChartCard } from '@/components/common/ChartCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useProfile } from '@/hooks'
+import { useHealthAssessment, useProfile } from '@/hooks'
+import { getErrorMessage } from '@/services'
 import { Button } from '@/components/ui/button'
 import { ROUTES } from '@/utils/constants'
 import { calculateDomainScores, buildHealthPageData } from '@/utils/profileInsights'
 
 export function HealthPage() {
   const { data: profile, isLoading: isProfileLoading } = useProfile()
+  const healthAssessment = useHealthAssessment()
+  const [fitnessInputMessage, setFitnessInputMessage] = useState<string | null>(null)
   const navigate = useNavigate()
   const healthData = useMemo(() => buildHealthPageData(profile), [profile])
   const { bmi, bmiStatus, sleep, stress, calories, water, weeklyActivity, dietSuggestions, workoutSuggestions } = healthData
@@ -52,7 +39,10 @@ export function HealthPage() {
     profile?.health?.water_intake,
   )
 
-  const bmiColor = bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
+  const bmiColor = bmi != null && bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
+  const handleFitnessScoreCheck = () => {
+    setFitnessInputMessage('Complete sleep quality, stress level, mood score, and active days per week to calculate your Fitness Score.')
+  }
 
   if (isProfileLoading) {
     return (
@@ -70,7 +60,7 @@ export function HealthPage() {
         <Card>
           <CardContent className="p-8 text-center">
             <h3 className="text-lg font-semibold mb-2">No health profile</h3>
-            <p className="text-sm text-muted-foreground mb-4">Provide basic health details to view personalized BMI, sleep, and workout recommendations.</p>
+            <p className="text-sm text-muted-foreground mb-4">Provide basic health details to view saved health details, fitness score, and profile reminders.</p>
             <Button variant="gradient" onClick={() => navigate(ROUTES.PROFILE)}>Edit Profile</Button>
           </CardContent>
         </Card>
@@ -82,7 +72,7 @@ export function HealthPage() {
     <div className="space-y-8">
       <PageHeader
         title="Health Dashboard"
-        description="Fitness, nutrition, and wellness tracking"
+        description="Your saved health details, fitness score, and profile reminders"
         badge="Health"
       />
 
@@ -97,7 +87,7 @@ export function HealthPage() {
         />
         <MetricCard
           title="BMI"
-          value={bmi}
+          value={bmi ?? 'Add height and weight to calculate BMI.'}
           subtitle={bmiStatus}
           icon={Scale}
           gradient="from-blue-500 to-cyan-500"
@@ -116,7 +106,33 @@ export function HealthPage() {
           icon={Activity}
           gradient="from-rose-500 to-pink-500"
         />
+        <Card>
+          <CardContent className="flex h-full flex-col justify-between gap-3 p-6">
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Fitness Score</p>
+              {healthAssessment.data ? (
+                <p className="text-3xl font-bold">{healthAssessment.data.value}</p>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">Complete the fitness assessment to see your Fitness Score.</p>
+              )}
+            </div>
+            <Button
+              variant="gradient"
+              onClick={handleFitnessScoreCheck}
+              disabled={healthAssessment.isPending}
+            >
+              {healthAssessment.isPending ? 'Checking...' : 'Check Fitness Score'}
+            </Button>
+            {fitnessInputMessage ? (
+              <p className="text-xs text-muted-foreground">{fitnessInputMessage}</p>
+            ) : null}
+          </CardContent>
+        </Card>
       </div>
+
+      {healthAssessment.isError ? (
+        <p className="text-sm text-destructive">{getErrorMessage(healthAssessment.error)}</p>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-1">
@@ -150,7 +166,9 @@ export function HealthPage() {
                 <span className="text-3xl font-bold">{bmi > 0 ? bmi : '—'}</span>
                 <span className={`text-xs font-medium ${bmiColor}`}>{bmiStatus}</span>
               </div>
-            </div>
+            ) : (
+              <p className="py-16 text-center text-sm text-muted-foreground">Add height and weight to calculate BMI.</p>
+            )}
             <p className="text-sm text-muted-foreground text-center mt-4">
               {bmi > 0 ? 'Healthy BMI range: 18.5 – 24.9' : 'No information available. Complete your profile to calculate BMI.'}
             </p>
@@ -254,11 +272,11 @@ export function HealthPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Utensils className="h-4 w-4 text-primary" />
-              Diet Suggestions
+              Diet Profile Reminder
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {dietSuggestions.map((tip, i) => (
+            {dietSuggestions.length > 0 ? dietSuggestions.map((tip, i) => (
               <motion.div
                 key={tip}
                 initial={{ opacity: 0, x: -10 }}
@@ -280,11 +298,11 @@ export function HealthPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Dumbbell className="h-4 w-4 text-primary" />
-              Workout Suggestions
+              Fitness Goal Reminder
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {workoutSuggestions.map((tip, i) => (
+            {workoutSuggestions.length > 0 ? workoutSuggestions.map((tip, i) => (
               <motion.div
                 key={tip}
                 initial={{ opacity: 0, x: -10 }}

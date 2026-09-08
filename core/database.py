@@ -30,7 +30,7 @@ def init_db():
     In production, rely on Alembic migrations instead (see alembic/).
     """
     # Import all models so they register on Base.metadata before create_all
-    from models import user, profile, conversation, memory, report  # noqa: F401
+    from models import user, profile, conversation, memory, report, progress  # noqa: F401
 
     Base.metadata.create_all(bind=engine)
     _apply_schema_fixes()

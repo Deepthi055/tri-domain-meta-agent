@@ -10,7 +10,7 @@ interface DomainCardProps {
   domain: 'career' | 'health' | 'finance'
   title: string
   description: string
-  score: number
+  score: number | null
   icon: LucideIcon
   href: string
   insight?: string
@@ -29,13 +29,19 @@ export function DomainCard({ domain, title, description, score, icon: Icon, href
                 <Icon className="h-5 w-5 text-white" />
               </div>
               <div className="text-right">
-                <span className="text-2xl font-bold">{score}</span>
-                <span className="text-sm text-muted-foreground">/100</span>
+                {score === null ? (
+                  <span className="text-sm font-semibold text-muted-foreground">Not enough data</span>
+                ) : (
+                  <>
+                    <span className="text-2xl font-bold">{score}</span>
+                    <span className="text-sm text-muted-foreground">/100</span>
+                  </>
+                )}
               </div>
             </div>
             <h3 className="font-semibold mb-1">{title}</h3>
             <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{description}</p>
-            <Progress value={score} className="mb-3 h-1.5" />
+            <Progress value={score ?? 0} className="mb-3 h-1.5" />
             {insight && (
               <p className="text-xs text-muted-foreground italic line-clamp-2">{insight}</p>
             )}

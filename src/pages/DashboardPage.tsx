@@ -23,7 +23,7 @@ import {
   YAxis,
 } from 'recharts'
 import { useAuth } from '@/contexts/AuthContext'
-import { useChatHistory, useMemories, useProfile, useReports } from '@/hooks'
+import { useAssessmentHistory, useChatHistory, useMemories, useProfile, useReports } from '@/hooks'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
 import { DomainCard } from '@/components/common/DomainCard'
@@ -50,10 +50,10 @@ export function DashboardPage() {
   const { data: conversations } = useChatHistory()
   const { data: memories } = useMemories()
   const { data: reports } = useReports()
+  const { data: assessmentHistory, isLoading: isAssessmentHistoryLoading, isError: isAssessmentHistoryError } = useAssessmentHistory()
 
   const domainScores = useMemo(() => calculateDomainScores(profile), [profile])
   const dashboardInsights = useMemo(() => buildDashboardInsights(profile), [profile])
-  const trendValues = useMemo(() => buildDashboardTrendValues(profile), [profile])
   const recentConversations = conversations?.slice(0, 3) ?? []
   const recentMemories = memories?.slice(0, 2) ?? []
   const latestReports = reports?.slice(0, 1) ?? []
@@ -156,7 +156,7 @@ export function DashboardPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Overall Score"
-          value={domainScores.overall}
+          value={domainScores.overall ?? 'Not enough data'}
           subtitle="Across all domains"
           icon={TrendingUp}
           trend={profileHasData ? { value: trendValues.overall, label: 'profile completion' } : undefined}

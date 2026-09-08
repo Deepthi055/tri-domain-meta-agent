@@ -68,7 +68,6 @@ export function calculateDomainScores(profile?: FullProfile) {
     overall: Math.round((careerScore + healthScore + financeScore) / 3),
   }
 }
-
 export function buildCareerPageData(profile?: FullProfile) {
   const skills = (profile?.career?.current_skills ?? []).slice(0, 6).map((skill, index) => ({
     name: skill,
@@ -126,7 +125,6 @@ export function buildCareerPageData(profile?: FullProfile) {
     progressData,
   }
 }
-
 export function buildHealthPageData(profile?: FullProfile) {
   const heightM = profile?.general?.height_cm ? profile.general.height_cm / 100 : 0
   const weightKg = profile?.general?.weight_kg || 0
@@ -160,7 +158,6 @@ export function buildHealthPageData(profile?: FullProfile) {
     workoutSuggestions,
   }
 }
-
 export function buildFinancePageData(profile?: FullProfile) {
   const monthlyIncome = profile?.finance?.monthly_income ?? null
   const monthlyExpenses = profile?.finance?.monthly_expenses ?? null
@@ -210,7 +207,6 @@ export function buildFinancePageData(profile?: FullProfile) {
     investments,
   }
 }
-
 export function buildDashboardActivity(
   profile?: FullProfile,
   conversations?: ConversationSummary[] | null,
@@ -256,10 +252,8 @@ export function buildDashboardActivity(
       timestamp: profile.general?.updated_at || profile.career?.updated_at || profile.health?.updated_at || profile.finance?.updated_at || new Date().toISOString(),
     })
   }
-
   return activities.slice(0, 5)
 }
-
 export function buildDashboardInsights(profile?: FullProfile) {
   const career = profile?.career?.target_role
   const health = profile?.health?.fitness_goal

@@ -7,24 +7,10 @@ import {
   TrendingUp,
   Wallet,
 } from 'lucide-react'
-import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
-import { ChartCard } from '@/components/common/ChartCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Progress } from '@/components/ui/progress'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useProfile } from '@/hooks'
@@ -43,10 +29,7 @@ export function FinancePage() {
     monthlyExpenses,
     savings,
     savingsRate,
-    budgetBreakdown,
-    monthlyTrend,
     riskProfile,
-    portfolio,
     investments,
   } = financeData
   const hasFinanceData = Boolean(
