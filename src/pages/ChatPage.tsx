@@ -36,6 +36,7 @@ export function ChatPage() {
   const { user } = useAuth()
   const location = useLocation()
   const scrollRef = useRef<HTMLDivElement>(null)
+  const messageDomains = useRef(new Map<string, string>())
 
   const { data: profile } = useProfile()
   const suggestedPrompts = useMemo(() => {
@@ -103,15 +104,18 @@ export function ChatPage() {
 
   useEffect(() => {
     if (conversation?.messages) {
-      setMessages(
-        conversation.messages.map((m) => ({
+      setMessages((previousMessages) => {
+        const knownDomains = new Map(previousMessages.map((message) => [message.id, message.domain]))
+        return conversation.messages.map((m) => ({
           id: m.id,
           role: m.role as 'user' | 'assistant',
           content: m.content,
           timestamp: m.timestamp,
-          domain: conversation.domain,
+          domain: m.role === 'assistant'
+            ? messageDomains.current.get(m.id) || knownDomains.get(m.id) || conversation.domain
+            : undefined,
         }))
-      )
+      })
     }
   }, [conversation])
 
@@ -210,20 +214,31 @@ export function ChatPage() {
         })
         if (!conversationId) setConversationId(res.conversation_id)
 
-        if (res.messages?.length) {
-          setMessages(
-            res.messages.map((m) => ({
-              id: m.id,
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-              timestamp: m.timestamp,
-              domain: m.role === 'assistant' ? res.domain : undefined,
-              confidence: m.role === 'assistant' ? res.confidence : undefined,
-              reason: m.role === 'assistant' ? res.reason : undefined,
-              sources: m.role === 'assistant' ? res.sources : undefined,
-            }))
-          )
-        } else {
+     if (res.messages?.length) {
+       setMessages((prev) => {
+       const existingIds = new Set(prev.map((m) => m.id))
+
+        const newMessages = (res.messages ?? [])
+      .filter((m) => !existingIds.has(m.id))
+      .map((m) => {
+        if (m.role === 'assistant') {
+          messageDomains.current.set(m.id, res.domain)
+        }
+        return {
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          timestamp: m.timestamp,
+          domain: m.role === 'assistant' ? res.domain : undefined,
+          confidence: m.role === 'assistant' ? res.confidence : undefined,
+          reason: m.role === 'assistant' ? res.reason : undefined,
+          sources: m.role === 'assistant' ? res.sources : undefined,
+        }
+      })
+
+    return [...prev, ...newMessages]
+  })
+} else {
           setMessages((prev) => [
             ...prev,
             {

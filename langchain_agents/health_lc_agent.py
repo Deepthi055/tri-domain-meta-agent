@@ -82,8 +82,7 @@ tools = [bmi_tool, fitness_score_tool, sleep_analysis_tool,
 health_agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
 
 def run(request) -> dict:
-    query = getattr(request, "query", "")
-    intent = detect_intent(query)
+    intent = detect_intent(getattr(request, "query", ""))
     detected_domain = (intent.get("domains") or ["general"])[0]
     if detected_domain != "health":
         domain_label = {
@@ -92,7 +91,6 @@ def run(request) -> dict:
         }.get(detected_domain, "the appropriate")
         return {
             "domain": "health",
-            "tools_used": [],
             "recommendation": (
                 "This question does not belong to the Health domain. "
                 f"Please switch to the {domain_label} domain."
@@ -100,6 +98,8 @@ def run(request) -> dict:
             "reason": f"Detected domain: {detected_domain}",
             "confidence": 1.0,
             "confidence_level": "High",
+            "tools_used": [],
+            "agent_type": "langchain",
         }
 
     user_input = f"""User profile:
