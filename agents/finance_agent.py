@@ -20,6 +20,7 @@ import re
 from typing import Any
 
 from core.llm_client import call_llm
+from core.intent_detector import detect_intent
 from tools.calculators import calculate_debt_ratio, calculate_savings
 from tools.finance_tools import (
     budget_planner,
@@ -980,6 +981,28 @@ def run(request: Any) -> dict[str, Any]:
     All calculations run in finance tools. The LLM only formats output when used.
     """
     query = getattr(request, "query", "")
+
+    # Manual Finance selection must not turn an unrelated question into a
+    # Finance request. Guard before loading profile data or selecting tools.
+    intent = detect_intent(query)
+    detected_domain = (intent.get("domains") or ["general"])[0]
+    if detected_domain != "finance":
+        domain_label = {
+            "career": "Career",
+            "health": "Health",
+        }.get(detected_domain, "the appropriate")
+        return {
+            "domain": "finance",
+            "tools_used": [],
+            "tool_outputs": {},
+            "recommendation": (
+                "This question does not belong to the Finance domain. "
+                f"Please switch to the {domain_label} domain."
+            ),
+            "reason": f"Detected domain: {detected_domain}",
+            "confidence": 1.0,
+            "confidence_level": "High",
+        }
 
     # 1. Always load latest profile
     user_id = getattr(request, "user_id", None)
