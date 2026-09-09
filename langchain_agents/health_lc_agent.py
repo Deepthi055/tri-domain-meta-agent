@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.tools import tool
 from langgraph.prebuilt import create_react_agent
+from core.intent_detector import detect_intent
 
 load_dotenv()
 
@@ -81,6 +82,26 @@ tools = [bmi_tool, fitness_score_tool, sleep_analysis_tool,
 health_agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
 
 def run(request) -> dict:
+    query = getattr(request, "query", "")
+    intent = detect_intent(query)
+    detected_domain = (intent.get("domains") or ["general"])[0]
+    if detected_domain != "health":
+        domain_label = {
+            "career": "Career",
+            "finance": "Finance",
+        }.get(detected_domain, "the appropriate")
+        return {
+            "domain": "health",
+            "tools_used": [],
+            "recommendation": (
+                "This question does not belong to the Health domain. "
+                f"Please switch to the {domain_label} domain."
+            ),
+            "reason": f"Detected domain: {detected_domain}",
+            "confidence": 1.0,
+            "confidence_level": "High",
+        }
+
     user_input = f"""User profile:
 - Name: {request.name}, Age: {request.age}
 - Weight: {getattr(request, 'weight_kg', 70)}kg

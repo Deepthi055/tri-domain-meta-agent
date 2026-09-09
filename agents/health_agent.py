@@ -1,4 +1,5 @@
 from core.llm_client import call_llm
+from core.intent_detector import detect_intent
 from tools.calculators import (
     calculate_bmi,
     fitness_score,
@@ -41,6 +42,26 @@ CRITICAL: Respond ONLY with valid JSON in exactly this format:
 
 
 def run(request) -> dict:
+
+    query = getattr(request, "query", "")
+    intent = detect_intent(query)
+    detected_domain = (intent.get("domains") or ["general"])[0]
+    if detected_domain != "health":
+        domain_label = {
+            "career": "Career",
+            "finance": "Finance",
+        }.get(detected_domain, "the appropriate")
+        return {
+            "domain": "health",
+            "tools_used": [],
+            "recommendation": (
+                "This question does not belong to the Health domain. "
+                f"Please switch to the {domain_label} domain."
+            ),
+            "reason": f"Detected domain: {detected_domain}",
+            "confidence": 1.0,
+            "confidence_level": "High",
+        }
 
     # ── Core tools — always run ───────────────────────────────
     bmi_data     = calculate_bmi(request.weight_kg, request.height_cm)
