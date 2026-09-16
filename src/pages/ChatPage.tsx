@@ -103,14 +103,22 @@ export function ChatPage() {
 
   useEffect(() => {
     if (conversation?.messages) {
-      setMessages(
-        conversation.messages.map((m) => ({
-          id: m.id,
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-          timestamp: m.timestamp,
-          domain: conversation.domain,
-        }))
+      setMessages((prev) =>
+        conversation.messages.map((m) => {
+          const existingMessage = prev.find((msg) => msg.id === m.id)
+
+          return {
+            id: m.id,
+            role: m.role as 'user' | 'assistant',
+            content: m.content,
+            timestamp: m.timestamp,
+            domain: existingMessage?.domain ?? conversation.domain,
+            confidence: existingMessage?.confidence ?? null,
+            reason: existingMessage?.reason ?? null,
+            sources: existingMessage?.sources,
+            warning: existingMessage?.warning,
+          }
+        })
       )
     }
   }, [conversation])
@@ -391,7 +399,7 @@ export function ChatPage() {
                   content={msg.content}
                   role={msg.role}
                   timestamp={msg.timestamp}
-                  domain={domain === 'auto' ? msg.domain : domain}
+                  domain={domain}
                   confidence={msg.confidence}
                   reason={msg.reason}
                   sources={msg.sources}
