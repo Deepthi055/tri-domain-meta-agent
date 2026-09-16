@@ -391,7 +391,7 @@ export function ChatPage() {
                   content={msg.content}
                   role={msg.role}
                   timestamp={msg.timestamp}
-                  domain={msg.domain}
+                  domain={domain === 'auto' ? msg.domain : domain}
                   confidence={msg.confidence}
                   reason={msg.reason}
                   sources={msg.sources}
