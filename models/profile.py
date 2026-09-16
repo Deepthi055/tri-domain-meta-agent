@@ -70,6 +70,10 @@ class HealthProfile(Base):
     fitness_goal = Column(String(120), nullable=True)
     sleep_hours = Column(Float, nullable=True)
     sleep_quality = Column(Integer, nullable=True)  # 1-10
+    mood_score = Column(Integer, nullable=True)  # 1-10
+    stress_level = Column(Integer, nullable=True)  # 1-10
+    anxiety_level = Column(Integer, nullable=True)  # 1-10
+    active_days_per_week = Column(Integer, nullable=True)  # 0-7
     diet_preference = Column(String(50), nullable=True)  # veg/non-veg/vegan/etc
     workout = Column(String(120), nullable=True)
     health_goals = Column(String(255), nullable=True)

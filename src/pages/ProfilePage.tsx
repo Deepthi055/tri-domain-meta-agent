@@ -822,7 +822,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import type { DebtEntry, FullProfile } from '@/types'
+import { STORAGE_KEYS } from '@/utils/constants'
+import type { DebtEntry, FullProfile, MedicalReportResponse } from '@/types'
 
 const optionalNumber = (schema: z.ZodNumber) =>
   z.preprocess((value) => value === '' || value === null ? undefined : value, schema.optional())
@@ -866,6 +867,10 @@ const profileSchema = z.object({
     fitness_goal: z.string().optional(),
     sleep_hours: z.coerce.number().optional(),
     sleep_quality: z.coerce.number().optional(),
+    mood_score: optionalNumber(z.coerce.number().min(1).max(10)),
+    stress_level: optionalNumber(z.coerce.number().min(1).max(10)),
+    anxiety_level: optionalNumber(z.coerce.number().min(1).max(10)),
+    active_days_per_week: optionalNumber(z.coerce.number().min(0).max(7)),
     diet_preference: z.string().optional(),
     workout: z.string().optional(),
     health_goals: z.string().optional(),
@@ -920,6 +925,10 @@ function buildProfilePayload(data: ProfileForm): FullProfile {
       fitness_goal: data.health.fitness_goal,
       sleep_hours: data.health.sleep_hours,
       sleep_quality: data.health.sleep_quality,
+      mood_score: data.health.mood_score,
+      stress_level: data.health.stress_level,
+      anxiety_level: data.health.anxiety_level,
+      active_days_per_week: data.health.active_days_per_week,
       diet_preference: data.health.diet_preference,
       workout: data.health.workout,
       health_goals: data.health.health_goals,
@@ -984,6 +993,10 @@ function buildFormValues(profile: FullProfile | undefined, userName: string): Pr
       fitness_goal: profile.health.fitness_goal ?? undefined,
       sleep_hours: profile.health.sleep_hours ?? undefined,
       sleep_quality: profile.health.sleep_quality ?? undefined,
+      mood_score: profile.health.mood_score ?? undefined,
+      stress_level: profile.health.stress_level ?? undefined,
+      anxiety_level: profile.health.anxiety_level ?? undefined,
+      active_days_per_week: profile.health.active_days_per_week ?? undefined,
       diet_preference: profile.health.diet_preference ?? undefined,
       workout: profile.health.workout ?? undefined,
       health_goals: profile.health.health_goals ?? undefined,
@@ -1035,6 +1048,9 @@ export function ProfilePage() {
   const [hasProfile, setHasProfile] = useState(false)
   const [resumeFileName, setResumeFileName] = useState<string | null>(null)
   const [resumeUploadMessage, setResumeUploadMessage] = useState<string | null>(null)
+  const [medicalReport, setMedicalReport] = useState<MedicalReportResponse | null>(null)
+  const [medicalReportError, setMedicalReportError] = useState<string | null>(null)
+  const [isUploadingMedicalReport, setIsUploadingMedicalReport] = useState(false)
 
   const profileHasData = useMemo(() => {
     if (!profile) return false
@@ -1120,6 +1136,35 @@ export function ProfilePage() {
           formSkills: savedFormValues.career?.current_skills,
         })
         reset(savedFormValues)
+
+        if (medicalReport && user?.id) {
+          const reportMemory = [
+            `Medical report analyzed: ${medicalReport.filename}`,
+            `Summary: ${medicalReport.analysis.summary}`,
+            medicalReport.analysis.findings.length > 0
+              ? `Findings: ${medicalReport.analysis.findings.map((finding) => `${finding.item} (${finding.severity})`).join('; ')}`
+              : 'Findings: No concerning findings were identified in the analysis.',
+            `Next steps: ${medicalReport.analysis.next_steps.join(' ')}`,
+          ].join('\n')
+
+          try {
+            await memoryService.create({
+              memory_text: reportMemory,
+              category: 'health',
+              importance_score: 0.9,
+            })
+            localStorage.setItem(
+              `${STORAGE_KEYS.MEDICAL_REPORT_RESULT}:${user.id}`,
+              JSON.stringify(medicalReport),
+            )
+            setMedicalReport(null)
+            setMedicalReportError(null)
+          } catch (reportError) {
+            setMedicalReportError('Profile saved, but the medical report could not be saved to memory. Please try Save Changes again.')
+            toast.error(getErrorMessage(reportError))
+          }
+        }
+
         setIsSaved(true)
         setSaveMessage(t('profileSaved'))
         toast.success(t('profileSaved'))
@@ -1293,6 +1338,24 @@ export function ProfilePage() {
       toast.error(getErrorMessage(err))
     } finally {
       event.target.value = ''
+    }
+  }
+
+  const handleMedicalReportUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setMedicalReportError(null)
+    setIsUploadingMedicalReport(true)
+    try {
+      const report = await profileService.analyzeMedicalReport(file)
+      setMedicalReport(report)
+      toast.success('Report analyzed. Click Save Changes to save it to your health memory.')
+    } catch (error) {
+      setMedicalReportError(getErrorMessage(error))
+    } finally {
+      setIsUploadingMedicalReport(false)
     }
   }
 
@@ -1562,6 +1625,22 @@ export function ProfilePage() {
                     )}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label>Mood Score</Label>
+                  <Input type="number" min="1" max="10" {...register('health.mood_score')} placeholder="1-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Stress Level</Label>
+                  <Input type="number" min="1" max="10" {...register('health.stress_level')} placeholder="1-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Anxiety Level</Label>
+                  <Input type="number" min="1" max="10" {...register('health.anxiety_level')} placeholder="1-10" />
+                </div>
+                <div className="space-y-2">
+                  <Label>Active Days per Week</Label>
+                  <Input type="number" min="0" max="7" {...register('health.active_days_per_week')} placeholder="0-7" />
+                </div>
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Diet</Label>
                   <Controller
@@ -1595,6 +1674,26 @@ export function ProfilePage() {
                 <div className="space-y-2 sm:col-span-2">
                   <Label>Water Intake (liters/day)</Label>
                   <Input type="number" step="0.25" min="0" {...register('health.water_intake')} />
+                </div>
+                <div className="space-y-3 sm:col-span-2 rounded-lg border border-dashed border-input p-4">
+                  <div>
+                    <Label>Medical Report</Label>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Upload a PDF or image of a medical report for text extraction and a plain-language explanation.
+                    </p>
+                  </div>
+                  <label className="inline-flex w-fit cursor-pointer items-center gap-2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium transition hover:bg-muted">
+                    <FileText className="h-4 w-4" />
+                    {isUploadingMedicalReport ? 'Analyzing report...' : 'Upload report'}
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf,image/jpeg,image/png,image/webp,image/bmp,image/tiff"
+                      className="sr-only"
+                      disabled={isUploadingMedicalReport}
+                      onChange={handleMedicalReportUpload}
+                    />
+                  </label>
+                  {medicalReportError ? <p className="text-sm text-destructive">{medicalReportError}</p> : null}
                 </div>
               </CardContent>
             </Card>

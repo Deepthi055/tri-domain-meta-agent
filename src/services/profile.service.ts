@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { FullProfile } from '@/types'
+import type { FullProfile, MedicalReportResponse } from '@/types'
 
 export const profileService = {
   async get(): Promise<FullProfile> {
@@ -14,6 +14,15 @@ export const profileService = {
 
   async update(data: FullProfile): Promise<FullProfile> {
     const res = await api.put<FullProfile>('/profile', data)
+    return res.data
+  },
+
+  async analyzeMedicalReport(file: File): Promise<MedicalReportResponse> {
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await api.post<MedicalReportResponse>('/profile/medical-report', formData, {
+      headers: { 'Content-Type': undefined },
+    })
     return res.data
   },
 }

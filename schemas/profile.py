@@ -7,7 +7,7 @@ onboarding form. All fields are optional on update (partial updates).
 """
 from datetime import datetime
 from typing import List, Optional, Union
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 import json
 
 
@@ -55,6 +55,10 @@ class HealthProfileIn(BaseModel):
     fitness_goal: Optional[str] = None
     sleep_hours: Optional[float] = None
     sleep_quality: Optional[int] = None
+    mood_score: Optional[int] = Field(default=None, ge=1, le=10)
+    stress_level: Optional[int] = Field(default=None, ge=1, le=10)
+    anxiety_level: Optional[int] = Field(default=None, ge=1, le=10)
+    active_days_per_week: Optional[int] = Field(default=None, ge=0, le=7)
     diet_preference: Optional[str] = None
     workout: Optional[str] = None
     health_goals: Optional[str] = None

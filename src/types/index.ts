@@ -54,11 +54,34 @@ export interface HealthProfile {
   fitness_goal?: string
   sleep_hours?: number
   sleep_quality?: number
+  mood_score?: number
+  stress_level?: number
+  anxiety_level?: number
+  active_days_per_week?: number
   diet_preference?: string
   workout?: string
   health_goals?: string
   water_intake?: number
   updated_at?: string
+}
+
+export interface MedicalReportFinding {
+  item: string
+  meaning: string
+  severity: 'normal' | 'watch' | 'urgent' | string
+}
+
+export interface MedicalReportResponse {
+  filename: string
+  extracted_text: string
+  analysis: {
+    summary: string
+    findings: MedicalReportFinding[]
+    next_steps: string[]
+    reassurance: string
+    disclaimer: string
+    analysis_available: boolean
+  }
 }
 
 export interface FinanceProfile {

@@ -57,7 +57,7 @@ export function buildHealthPageData(profile?: FullProfile) {
   const bmiStatus = bmi == null ? 'Not provided' : bmi < 18.5 ? 'Underweight' : bmi < 25 ? 'Normal' : bmi < 30 ? 'Overweight' : 'Obese'
   const sleepHours = profile?.health?.sleep_hours ?? null
   const sleepQuality = profile?.health?.sleep_quality ?? null
-  const stressLevel = null
+  const stressLevel = profile?.health?.stress_level ?? null
   const dietSuggestions = profile?.health?.diet_preference
     ? [`Keep ${profile.health.diet_preference.toLowerCase()} meals balanced`]
     : []

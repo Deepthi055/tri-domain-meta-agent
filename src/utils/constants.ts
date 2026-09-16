@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
   NOTIFICATIONS: 'tridomain_notifications',
   TWO_FACTOR: 'tridomain_two_factor',
   AVATAR_URL: 'tridomain_avatar_url',
+  MEDICAL_REPORT_RESULT: 'tridomain_medical_report_result',
 } as const
 
 export const ROUTES = {

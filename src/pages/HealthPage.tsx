@@ -1,6 +1,10 @@
+
 import { motion } from 'framer-motion'
 import {
   Activity,
+  AlertTriangle,
+  CheckCircle2,
+  FileText,
   Moon,
   Scale,
   Utensils,
@@ -9,25 +13,61 @@ import {
 import { PageHeader } from '@/components/layout/PageHeader'
 import { MetricCard } from '@/components/common/MetricCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '@/contexts/AuthContext'
 import { useHealthAssessment, useProfile } from '@/hooks'
 import { getErrorMessage } from '@/services'
 import { Button } from '@/components/ui/button'
-import { ROUTES } from '@/utils/constants'
+import { ROUTES, STORAGE_KEYS } from '@/utils/constants'
+import type { MedicalReportResponse } from '@/types'
 import { buildHealthPageData } from '@/utils/profileInsights'
 
 export function HealthPage() {
+  const { user } = useAuth()
   const { data: profile, isLoading: isProfileLoading } = useProfile()
   const healthAssessment = useHealthAssessment()
   const [fitnessInputMessage, setFitnessInputMessage] = useState<string | null>(null)
+  const [medicalReport, setMedicalReport] = useState<MedicalReportResponse | null>(null)
   const navigate = useNavigate()
   const healthData = useMemo(() => buildHealthPageData(profile), [profile])
   const { bmi, bmiStatus, sleep, stress, waterIntake, dietSuggestions, workoutSuggestions } = healthData
 
+  useEffect(() => {
+    if (!user?.id) return
+    const storedReport = localStorage.getItem(`${STORAGE_KEYS.MEDICAL_REPORT_RESULT}:${user.id}`)
+    if (!storedReport) return
+    try {
+      setMedicalReport(JSON.parse(storedReport) as MedicalReportResponse)
+    } catch {
+      localStorage.removeItem(`${STORAGE_KEYS.MEDICAL_REPORT_RESULT}:${user.id}`)
+    }
+  }, [user?.id])
+
   const bmiColor = bmi != null && bmi < 25 ? 'text-emerald-500' : 'text-amber-500'
   const handleFitnessScoreCheck = () => {
-    setFitnessInputMessage('Complete sleep quality, stress level, mood score, and active days per week to calculate your Fitness Score.')
+    if (!profile) {
+      setFitnessInputMessage('Complete your health profile before calculating your Fitness Score.')
+      return
+    }
+
+    const inputs = {
+      sleep_quality: profile.health?.sleep_quality,
+      stress_level: profile.health?.stress_level,
+      mood_score: profile.health?.mood_score,
+      active_days_per_week: profile.health?.active_days_per_week,
+    }
+    if (Object.values(inputs).some((value) => value == null)) {
+      setFitnessInputMessage('Complete sleep quality, stress level, mood score, and active days per week in your profile first.')
+      return
+    }
+    setFitnessInputMessage(null)
+    healthAssessment.mutate(inputs as {
+      sleep_quality: number
+      stress_level: number
+      mood_score: number
+      active_days_per_week: number
+    })
   }
 
   if (isProfileLoading) {
@@ -110,6 +150,64 @@ export function HealthPage() {
 
       {healthAssessment.isError ? (
         <p className="text-sm text-destructive">{getErrorMessage(healthAssessment.error)}</p>
+      ) : null}
+
+      {medicalReport ? (
+        <Card className="overflow-hidden border-emerald-500/20 shadow-lg shadow-emerald-500/5">
+          <div className="bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-cyan-500/15 px-6 py-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500 text-white shadow-md shadow-emerald-500/25">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700 dark:text-emerald-300">Latest report</p>
+                  <h2 className="text-lg font-semibold">{medicalReport.filename}</h2>
+                </div>
+              </div>
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-xs font-medium text-muted-foreground">
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Explained in plain language
+              </span>
+            </div>
+          </div>
+          <CardContent className="space-y-5 p-6">
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Summary</p>
+              <p className="text-base leading-7">{medicalReport.analysis.summary}</p>
+            </div>
+            {medicalReport.analysis.findings.length > 0 ? (
+              <div>
+                <p className="mb-3 text-sm font-semibold">What the report says</p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {medicalReport.analysis.findings.map((finding) => (
+                    <div key={`${finding.item}-${finding.meaning}`} className="rounded-xl border bg-muted/20 p-4">
+                      <div className="flex items-start gap-2">
+                        <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${finding.severity === 'urgent' ? 'text-red-500' : finding.severity === 'watch' ? 'text-amber-500' : 'text-emerald-500'}`} />
+                        <div>
+                          <p className="text-sm font-semibold">{finding.item}</p>
+                          <p className="mt-1 text-sm leading-6 text-muted-foreground">{finding.meaning}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl bg-teal-500/10 p-4">
+                <p className="mb-2 text-sm font-semibold text-teal-800 dark:text-teal-200">Next steps</p>
+                <ul className="list-disc space-y-1.5 pl-5 text-sm leading-6 text-muted-foreground">
+                  {medicalReport.analysis.next_steps.map((step) => <li key={step}>{step}</li>)}
+                </ul>
+              </div>
+              <div className="rounded-xl bg-emerald-500/10 p-4">
+                <p className="mb-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200">A note for you</p>
+                <p className="text-sm leading-6 text-muted-foreground">{medicalReport.analysis.reassurance}</p>
+              </div>
+            </div>
+            <p className="border-t pt-4 text-xs leading-5 text-muted-foreground">{medicalReport.analysis.disclaimer}</p>
+          </CardContent>
+        </Card>
       ) : null}
 
       <div className="grid gap-6 lg:grid-cols-3">

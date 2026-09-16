@@ -52,6 +52,7 @@ from models.user import User
 from schemas.profile import FullProfileIn, FullProfileOut, CareerProfileIn
 from services.profile_service import upsert_full_profile, get_full_profile
 from services.resume_extraction import ResumeExtractionError, extract_resume_text
+from services.medical_report_service import analyze_medical_report, extract_medical_report_text
  
 router = APIRouter(prefix="/profile", tags=["profile"])
  
@@ -117,5 +118,27 @@ async def upload_resume(
     upsert_full_profile(db, current_user.id, payload)
  
     return {"filename": file.filename, "resume_text": resume_text}
+
+
+@router.post("/medical-report")
+async def upload_medical_report(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Extract and explain a PDF medical report without storing its contents."""
+    del current_user
+    filename = file.filename or "medical-report.pdf"
+    file_bytes = await file.read()
+    try:
+        report_text = extract_medical_report_text(file_bytes, filename)
+        analysis = analyze_medical_report(report_text)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "filename": filename,
+        "extracted_text": report_text,
+        "analysis": analysis,
+    }
  
 

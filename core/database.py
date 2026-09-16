@@ -88,6 +88,14 @@ def _apply_schema_fixes():
                 connection.execute(text('ALTER TABLE health_profiles ADD COLUMN health_goals VARCHAR(255)'))
             if 'water_intake' not in health_columns:
                 connection.execute(text('ALTER TABLE health_profiles ADD COLUMN water_intake FLOAT'))
+            if 'mood_score' not in health_columns:
+                connection.execute(text('ALTER TABLE health_profiles ADD COLUMN mood_score INTEGER'))
+            if 'stress_level' not in health_columns:
+                connection.execute(text('ALTER TABLE health_profiles ADD COLUMN stress_level INTEGER'))
+            if 'anxiety_level' not in health_columns:
+                connection.execute(text('ALTER TABLE health_profiles ADD COLUMN anxiety_level INTEGER'))
+            if 'active_days_per_week' not in health_columns:
+                connection.execute(text('ALTER TABLE health_profiles ADD COLUMN active_days_per_week INTEGER'))
 
         if inspector.has_table('finance_profiles'):
             finance_columns = {column['name'] for column in inspector.get_columns('finance_profiles')}
