@@ -26,6 +26,32 @@ class CareerPromptTests(TestCase):
             resume_text="",
         )
 
+    def test_career_system_prompt_has_grounding_and_attribution_rules(self):
+        prompt = " ".join(career_lc_agent.SYSTEM_PROMPT.split())
+        for instruction in (
+            "Use retrieved context as the primary evidence",
+            "Cite the exact document title shown in retrieved text",
+            "Do not invent source names, statistics, quotations, or document contents",
+            "state that limitation clearly",
+            "General guidance, not explicitly stated in the knowledge base.",
+            "Never attribute a claim to a document unless the retrieved text",
+            "knowledge base does not contain sufficient evidence",
+        ):
+            self.assertIn(instruction, prompt)
+
+    @patch("rag.retriever.retrieve", return_value=[{
+        "source": "career_kb.txt",
+        "text": " ",
+    }])
+    def test_career_retrieval_without_text_is_reported_empty(self, retrieve):
+        result = career_lc_agent._retrieve_career_context(
+            "What skills are required for a product manager?"
+        )
+
+        self.assertEqual(result["status"], "empty")
+        self.assertEqual(result["context"], "")
+        self.assertEqual(result["sources"], [])
+
     def test_prompt_prioritizes_current_query(self):
         query = "Explain method overloading and overriding in Java."
 
@@ -103,6 +129,121 @@ class CareerPromptTests(TestCase):
         learning_path_generator.assert_not_called()
         self.assertEqual(result["summary"], "Python explanation")
 
+    def test_general_career_questions_do_not_run_personalized_tools(self):
+        requests = (
+            self._request(
+                "What salary can an entry-level data scientist expect in India?"
+            ),
+            self._request("How can someone identify skill gaps for a new role?"),
+            self._request("Career transitions can be stressful. What helps?"),
+        )
+        with patch.object(career_agent, "skill_gap_analyzer") as skill_gap, \
+                patch.object(career_agent, "job_search") as job_search, \
+                patch.object(career_agent, "salary_benchmark") as salary, \
+                patch.object(career_agent, "learning_path_generator") as learning, \
+                patch.object(
+                    career_agent,
+                    "call_llm",
+                    return_value={"summary": "General guidance"},
+                ):
+            for request in requests:
+                with self.subTest(query=request.query):
+                    result = career_agent.run(request)
+                    self.assertEqual(result["intent_class"], "KNOWLEDGE_ONLY")
+                    self.assertEqual(result["tools_used"], [])
+                    self.assertEqual(result["profile_values_used"], {})
+
+        skill_gap.assert_not_called()
+        job_search.assert_not_called()
+        salary.assert_not_called()
+        learning.assert_not_called()
+
+    def test_personalized_requests_run_only_the_required_legacy_tools(self):
+        tool_cases = (
+            (
+                "Analyze my skills for my target role.",
+                "skill_gap_analyzer",
+            ),
+            ("Find jobs matching my skills.", "job_search"),
+            (
+                "Benchmark my salary based on my experience.",
+                "salary_benchmark",
+            ),
+            (
+                "Create my personalized learning plan.",
+                "learning_path_generator",
+            ),
+        )
+        with patch.object(career_agent, "skill_gap_analyzer", return_value={}) as gap, \
+                patch.object(career_agent, "job_search", return_value={}) as jobs, \
+                patch.object(career_agent, "salary_benchmark", return_value={}) as salary, \
+                patch.object(career_agent, "learning_path_generator", return_value={}) as learning, \
+                patch.object(
+                    career_agent,
+                    "call_llm",
+                    return_value={"summary": "Personalized guidance"},
+                ):
+            for query, expected_tool in tool_cases:
+                with self.subTest(query=query):
+                    for mock in (gap, jobs, salary, learning):
+                        mock.reset_mock()
+                    result = career_agent.run(self._request(query))
+                    self.assertEqual(result["tools_used"], [expected_tool])
+                    for name, mock in (
+                        ("skill_gap_analyzer", gap),
+                        ("job_search", jobs),
+                        ("salary_benchmark", salary),
+                        ("learning_path_generator", learning),
+                    ):
+                        if name == expected_tool:
+                            mock.assert_called_once()
+                        else:
+                            mock.assert_not_called()
+
+    def test_failed_tool_does_not_discard_rag_or_successful_tool_results(self):
+        request = self._request("How can I close my skill gaps?")
+        context = "RELEVANT CAREER KNOWLEDGE: Grounded learning order."
+        with patch.object(
+            career_agent,
+            "skill_gap_analyzer",
+            side_effect=RuntimeError("skill analyzer unavailable"),
+        ) as skill_gap, patch.object(
+            career_agent,
+            "learning_path_generator",
+            return_value={"phases": [{"name": "Practice"}]},
+        ) as learning, patch.object(
+            career_agent,
+            "job_search",
+        ) as jobs, patch.object(
+            career_agent,
+            "salary_benchmark",
+        ) as salary, patch.object(
+            career_agent,
+            "call_llm",
+            return_value={"summary": "Use small weekly steps"},
+        ) as call_llm:
+            result = career_agent.run(
+                request,
+                rag_context=context,
+                rag_enabled=True,
+            )
+
+        skill_gap.assert_called_once()
+        learning.assert_called_once()
+        jobs.assert_not_called()
+        salary.assert_not_called()
+        self.assertEqual(
+            result["tool_outputs"]["skill_gap_analyzer"]["status"],
+            "failed",
+        )
+        self.assertEqual(
+            result["tool_outputs"]["learning_path_generator"]["status"],
+            "completed",
+        )
+        prompt = call_llm.call_args.args[1]
+        self.assertIn(context, prompt)
+        self.assertNotIn("skill analyzer unavailable", prompt)
+
     def test_java_python_and_dbms_questions_return_relevant_mocked_answers(self):
         queries_and_answers = (
             ("Explain Java interfaces.", "Java interfaces define contracts."),
@@ -148,7 +289,7 @@ class CareerPromptTests(TestCase):
         job_search,
         skill_gap_analyzer,
     ):
-        query = "Create a software placement preparation plan."
+        query = "Create my personalized learning plan for software engineering placements."
         result = career_agent.run(self._request(query))
 
         self.assertEqual(result["summary"], "Placement plan")
@@ -271,7 +412,7 @@ class CareerPromptTests(TestCase):
         self.assertEqual(
             explanation["tool_statuses"]["salary_benchmark_tool"], "failed"
         )
-        self.assertEqual(explanation["retrieved_sources"], ["career_kb.txt"])
+        self.assertEqual(explanation["retrieved_sources"], [])
         self.assertIn("salary_benchmark_tool", explanation["limitations"][0])
         self.assertIn("No confidence score", explanation["confidence_explanation"])
 
@@ -306,21 +447,211 @@ class CareerPromptTests(TestCase):
             explanation["profile_values_used"],
         )
 
-    @patch.object(career_lc_agent, "career_agent")
-    def test_langchain_path_preserves_query_and_api_tool_output_shape(self, agent):
+    @patch.object(career_lc_agent, "llm")
+    def test_langchain_path_preserves_query_and_api_tool_output_shape(self, llm):
         message = MagicMock()
         message.content = '{"recommendation": "Explain Java interfaces."}'
-        message.type = "ai"
-        agent.invoke.return_value = {"messages": [message]}
+        llm.invoke.return_value = message
 
-        result = career_lc_agent.run(self._request("Explain Java interfaces."))
+        with patch.object(
+            career_lc_agent,
+            "_retrieve_career_context",
+            return_value={"status": "empty", "context": "", "sources": []},
+        ):
+            result = career_lc_agent.run(self._request("Explain Java interfaces."))
 
-        user_input = agent.invoke.call_args.args[0]["messages"][0]["content"]
+        user_input = llm.invoke.call_args.args[0][1][1]
         self.assertIn("Explain Java interfaces.", user_input)
         self.assertNotIn("data scientist", user_input)
         self.assertIsInstance(result["tool_outputs"], dict)
         self.assertNotIn("confidence", result)
         self.assertEqual(result["sources"], [])
+
+    def test_rag_toggle_changes_only_retrieval_and_knowledge_profile_injection(self):
+        message = SimpleNamespace(
+            type="ai",
+            content='{"recommendation": "General salary guidance."}',
+        )
+        chunk = {
+            "source": "career_kb.txt",
+            "chunk_id": 7,
+            "relevance_score": 0.82,
+            "text": "DOCUMENT: Career Salary Guide\nSalary ranges vary by role.",
+        }
+        request = self._request(
+            "What salary can an entry-level data scientist expect in India?"
+        )
+        with patch.object(career_lc_agent, "llm") as llm, patch(
+            "rag.retriever.retrieve",
+            return_value=[chunk],
+        ) as retrieve:
+            llm.invoke.return_value = message
+            enabled = career_lc_agent.run(request, rag_enabled=True)
+            enabled_prompt = llm.invoke.call_args_list[0].args[0][1][1]
+            disabled = career_lc_agent.run(request, rag_enabled=False)
+            disabled_prompt = llm.invoke.call_args_list[1].args[0][1][1]
+
+        retrieve.assert_called_once()
+        self.assertIn("Salary ranges vary by role.", enabled_prompt)
+        self.assertNotIn("Salary ranges vary by role.", disabled_prompt)
+        self.assertNotIn("Software Engineer", enabled_prompt)
+        self.assertNotIn("Python", enabled_prompt)
+        self.assertEqual(enabled["tool_selected"], disabled["tool_selected"])
+        self.assertIsNone(enabled["tool_selected"])
+        self.assertIsNone(disabled["tool_selected"])
+        self.assertEqual(enabled["retrieval_status"], "success")
+        self.assertEqual(disabled["retrieval_status"], "disabled")
+        self.assertEqual(
+            enabled["explainability"]["retrieved_sources"],
+            [{
+                "doc_title": "Career Salary Guide",
+                "chunk_id": 7,
+                "score": 0.82,
+            }],
+        )
+        self.assertFalse(disabled["explainability"]["context_in_prompt"])
+
+    @patch.object(career_lc_agent, "llm")
+    @patch.object(career_lc_agent, "career_agent")
+    def test_knowledge_answer_does_not_send_json_tool_call_to_react_agent(
+        self,
+        agent,
+        llm,
+    ):
+        llm.invoke.return_value = SimpleNamespace(
+            content="The 50/30/20 rule divides income into needs, wants, and savings."
+        )
+        with patch.object(
+            career_lc_agent,
+            "_retrieve_career_context",
+            return_value={"status": "empty", "context": "", "sources": []},
+        ):
+            result = career_lc_agent.run(
+                self._request("Explain the 50-30-20 budgeting rule.")
+            )
+
+        agent.invoke.assert_not_called()
+        llm.invoke.assert_called_once()
+        self.assertEqual(result["agent_type"], "langchain")
+        self.assertEqual(result["fallback_reason"], None)
+        self.assertIn("50/30/20", result["recommendation"])
+
+    @patch.object(career_lc_agent, "llm")
+    def test_personalized_profile_introduction_uses_profile_without_tools(self, llm):
+        llm.invoke.return_value = SimpleNamespace(
+            content='{"recommendation": "A profile-based introduction."}'
+        )
+        with patch.object(
+            career_lc_agent,
+            "_retrieve_career_context",
+            return_value={"status": "empty", "context": "", "sources": []},
+        ):
+            result = career_lc_agent.run(
+                self._request(
+                    "Provide me introduction according to my career profile"
+                )
+            )
+
+        prompt = llm.invoke.call_args.args[0][1][1]
+        self.assertIn("Software Engineer", prompt)
+        self.assertIn("Python", prompt)
+        self.assertEqual(result["intent_class"], "HYBRID")
+        self.assertIsNone(result["tool_selected"])
+        self.assertEqual(
+            result["profile_values_used"],
+            {
+                "Current skills": ["Python"],
+                "Target role": "Software Engineer",
+                "Location": "Bangalore",
+                "Experience level": "entry",
+                "Years of experience": 0,
+            },
+        )
+
+    def test_langchain_failure_passes_the_single_retrieval_to_legacy_fallback(self):
+        context_sentence = "Career guidance recommends focused weekly practice."
+        chunk = {
+            "source": "career_kb.txt",
+            "chunk_id": 11,
+            "relevance_score": 0.91,
+            "text": f"DOCUMENT: Career Guide\n{context_sentence}",
+        }
+        request = self._request(
+            "Create my personalized learning plan for a career transition."
+        )
+        with patch(
+            "rag.retriever.retrieve",
+            return_value=[chunk],
+        ) as retrieve, patch.object(
+            career_lc_agent.career_agent,
+            "invoke",
+            side_effect=RuntimeError("test agent failure"),
+        ), patch.object(
+            career_agent,
+            "learning_path_generator",
+            return_value={},
+        ), patch.object(
+            career_agent,
+            "call_llm",
+            return_value={"summary": "Take one manageable step each week."},
+        ) as call_llm:
+            result = career_lc_agent.run(request, rag_enabled=True)
+
+        retrieve.assert_called_once()
+        prompt = call_llm.call_args.args[1]
+        self.assertIn(context_sentence, prompt)
+        self.assertEqual(result["agent_type"], "fallback")
+        self.assertEqual(result["retrieval_status"], "success")
+        self.assertEqual(
+            result["retrieval_status_before_fallback"],
+            "success",
+        )
+        self.assertTrue(result["context_in_prompt"])
+        self.assertEqual(result["fallback_stage"], "invoke")
+        self.assertEqual(
+            result["explainability"]["retrieved_sources"][0]["chunk_id"],
+            11,
+        )
+
+    def test_rag_setting_does_not_change_tool_selection_for_sample_queries(self):
+        queries = (
+            "What salary can an entry-level data scientist expect in India?",
+            "How can someone close career skill gaps?",
+            "Find jobs matching my skills.",
+            "Benchmark my salary based on my experience.",
+            "Create my personalized learning plan.",
+        )
+        message = SimpleNamespace(
+            type="ai",
+            content='{"recommendation": "Career answer."}',
+        )
+        selected_by_query = {}
+        with patch.object(career_lc_agent, "career_agent") as agent, patch.object(
+            career_lc_agent, "llm"
+        ) as llm, patch(
+            "rag.retriever.retrieve",
+            return_value=[],
+        ):
+            agent.invoke.return_value = {"messages": [message]}
+            llm.invoke.return_value = message
+            for query in queries:
+                request = self._request(query)
+                enabled = career_lc_agent.run(request, rag_enabled=True)
+                disabled = career_lc_agent.run(request, rag_enabled=False)
+                selected_by_query[query] = enabled["tool_selected"]
+                self.assertEqual(
+                    enabled["tool_selected"],
+                    disabled["tool_selected"],
+                )
+
+        self.assertEqual(
+            selected_by_query[queries[0]],
+            None,
+        )
+        self.assertEqual(
+            selected_by_query[queries[2]],
+            ["job_search"],
+        )
 
     @patch.object(career_lc_agent, "career_agent")
     def test_langchain_tool_execution_records_success_failure_and_sources(self, agent):
@@ -344,16 +675,23 @@ class CareerPromptTests(TestCase):
             "messages": [success, failure, final_message]
         }
 
-        result = career_lc_agent.run(self._request("Find jobs and salary data."))
+        with patch.object(
+            career_lc_agent,
+            "_retrieve_career_context",
+            return_value={"status": "empty", "context": "", "sources": []},
+        ):
+            result = career_lc_agent.run(
+                self._request("Find jobs and salary data.")
+            )
 
         self.assertEqual(result["sources"], ["jobs-api"])
         self.assertEqual(result["tool_outputs"]["job_search_tool"]["status"], "completed")
         self.assertEqual(result["tool_outputs"]["salary_benchmark_tool"]["status"], "failed")
 
-    @patch.object(career_lc_agent, "career_agent")
+    @patch.object(career_lc_agent, "llm")
     def test_exact_placement_query_direct_llm_has_execution_accurate_explainability(
         self,
-        agent,
+        llm,
     ):
         message = MagicMock()
         message.type = "ai"
@@ -361,7 +699,7 @@ class CareerPromptTests(TestCase):
             '{"recommendation": "A four-week Java placement schedule.", '
             '"reason": "The query requests a daily schedule."}'
         )
-        agent.invoke.return_value = {"messages": [message]}
+        llm.invoke.return_value = message
         request = self._request(
             "I have only 1 hour per day to prepare for software engineering "
             "placements. Create a realistic 4-week schedule with daily tasks. "
@@ -407,9 +745,14 @@ class CareerPromptTests(TestCase):
             content='{"recommendation": "Schedule", "reason": "Tool result"}',
         )
         agent.invoke.return_value = {"messages": [tool_message, final_message]}
-        request = self._request("Create a one-month placement plan.")
+        request = self._request("Create my one-month learning plan for my target role.")
 
-        result = career_lc_agent.run(request)
+        with patch.object(
+            career_lc_agent,
+            "_retrieve_career_context",
+            return_value={"status": "empty", "context": "", "sources": []},
+        ):
+            result = career_lc_agent.run(request)
         explanation = result["explainability"]
 
         self.assertEqual(explanation["tools_invoked"], ["learning_path_tool"])
@@ -417,7 +760,7 @@ class CareerPromptTests(TestCase):
             explanation["tool_statuses"]["learning_path_tool"],
             "completed",
         )
-        self.assertEqual(explanation["retrieved_sources"], ["career_kb.txt"])
+        self.assertEqual(explanation["retrieved_sources"], [])
         self.assertEqual(explanation["profile_values_used"]["Target role"], "Software Engineer")
 
     @patch.object(career_lc_agent, "career_agent")
@@ -439,19 +782,21 @@ class CareerPromptTests(TestCase):
             "_retrieve_career_context",
             return_value={"status": "empty", "context": "", "sources": []},
         ):
-            result = career_lc_agent.run(self._request("Create a learning plan."))
+            result = career_lc_agent.run(
+                self._request("Create my personalized learning plan.")
+            )
         explanation = result["explainability"]
 
         self.assertEqual(explanation["tool_statuses"]["learning_path_tool"], "failed")
         self.assertEqual(explanation["retrieved_sources"], [])
         self.assertTrue(any("failed" in item for item in explanation["limitations"]))
 
-    @patch.object(career_lc_agent, "career_agent")
+    @patch.object(career_lc_agent, "llm")
     @patch.object(career_lc_agent, "_retrieve_career_context")
     def test_exact_placement_query_passes_retrieved_context_and_sources(
         self,
         retrieve_context,
-        agent,
+        llm,
     ):
         retrieve_context.return_value = {
             "status": "success",
@@ -465,7 +810,7 @@ class CareerPromptTests(TestCase):
             type="ai",
             content="Use the retrieved plan.",
         )
-        agent.invoke.return_value = {"messages": [final_message]}
+        llm.invoke.return_value = final_message
         request = self._request(
             "I am a third-year Computer Science engineering student preparing "
             "for software engineering placements. I know basic Java, arrays, "
@@ -478,10 +823,11 @@ class CareerPromptTests(TestCase):
             "interviews based on my current skill level."
         )
 
-        result = career_lc_agent.run(request)
-        prompt = agent.invoke.call_args.args[0]["messages"][0]["content"]
+        result = career_lc_agent.run(request, rag_enabled=True)
+        prompt = llm.invoke.call_args.args[0][1][1]
 
-        retrieve_context.assert_called_once_with(request.query)
+        retrieve_context.assert_called_once()
+        self.assertEqual(retrieve_context.call_args.args[0], request.query)
         self.assertIn("DSA interview preparation topics.", prompt)
         self.assertEqual(result["sources"], ["career_kb.txt"])
         self.assertNotIn(
@@ -495,7 +841,7 @@ class CareerPromptTests(TestCase):
         )
         self.assertEqual(
             result["explainability"]["retrieved_sources"],
-            ["career_kb.txt"],
+            [{"doc_title": "career_kb.txt", "chunk_id": None, "score": None}],
         )
         self.assertIn("Requested duration: 30 days", result["explainability"]["data_used"])
         self.assertIn("Daily study limit: 1 hour per day", result["explainability"]["data_used"])
@@ -503,19 +849,17 @@ class CareerPromptTests(TestCase):
         self.assertNotIn("directly by the LangChain Career LLM",
                          result["explainability"]["decision_factors"][0])
 
-    @patch.object(career_lc_agent, "career_agent")
+    @patch.object(career_lc_agent, "llm")
     @patch.object(career_lc_agent, "_retrieve_career_context")
-    def test_career_retrieval_empty_result_is_reported(self, retrieve_context, agent):
+    def test_career_retrieval_empty_result_is_reported(self, retrieve_context, llm):
         retrieve_context.return_value = {
             "status": "empty",
             "context": "",
             "sources": [],
         }
-        agent.invoke.return_value = {
-            "messages": [
-                SimpleNamespace(type="ai", content='{"recommendation": "Fallback"}')
-            ]
-        }
+        llm.invoke.return_value = SimpleNamespace(
+            content='{"recommendation": "Fallback"}'
+        )
 
         result = career_lc_agent.run(
             self._request("Create a software placement preparation plan.")
@@ -528,12 +872,12 @@ class CareerPromptTests(TestCase):
         )
         self.assertEqual(result["sources"], [])
 
-    @patch.object(career_lc_agent, "career_agent")
+    @patch.object(career_lc_agent, "llm")
     @patch.object(career_lc_agent, "_retrieve_career_context")
     def test_career_retrieval_failure_is_reported_without_sources(
         self,
         retrieve_context,
-        agent,
+        llm,
     ):
         retrieve_context.return_value = {
             "status": "failed",
@@ -541,11 +885,9 @@ class CareerPromptTests(TestCase):
             "sources": [],
             "error": "index unavailable",
         }
-        agent.invoke.return_value = {
-            "messages": [
-                SimpleNamespace(type="ai", content='{"recommendation": "Fallback"}')
-            ]
-        }
+        llm.invoke.return_value = SimpleNamespace(
+            content='{"recommendation": "Fallback"}'
+        )
 
         result = career_lc_agent.run(
             self._request("Create a software placement preparation plan.")
@@ -611,6 +953,31 @@ class CareerPromptTests(TestCase):
         )
         self.assertIn("missing_profile_fields", completed["explainability"])
 
+    def test_chat_explainability_includes_measured_agent_latency(self):
+        request = self._request("Find software engineering jobs.")
+        result = {
+            "agent_type": "langchain",
+            "tools_used": ["job_search_tool"],
+            "tool_outputs": {},
+        }
+
+        from langchain_agents import meta_lc_agent
+        with patch.object(meta_lc_agent, "career_run", return_value=result), \
+                patch.object(meta_lc_agent, "_build_chat_request", return_value=request), \
+                patch.object(
+                    meta_lc_agent.time,
+                    "perf_counter",
+                    side_effect=[10.0, 10.123],
+                ):
+            completed = meta_lc_agent.run_chat_agent(
+                db=MagicMock(),
+                user_id="user-1",
+                domain="career",
+                query=request.query,
+            )
+
+        self.assertEqual(completed["explainability"]["latency_ms"], 123.0)
+
     @patch.object(career_tools, "_call_llm", return_value={
         "phases": [
             {"phase": 1, "duration_weeks": 4},
@@ -638,6 +1005,23 @@ class CareerPromptTests(TestCase):
             result["total_weeks_required"],
         )
         self.assertEqual(result["timeline_months"], 3)
+
+    def test_learning_path_skips_rag_when_disabled(self):
+        with patch.dict("os.environ", {"USE_RAG": "false"}), \
+                patch("rag.retriever.retrieve_as_context") as retrieve, \
+                patch.object(
+                    career_tools,
+                    "_call_llm",
+                    return_value={"phases": [{"duration_weeks": 4}]},
+                ):
+            career_tools.learning_path_generator(
+                target_role="Data Analyst",
+                current_level="beginner",
+                timeline_months=3,
+                missing_skills=["SQL"],
+            )
+
+        retrieve.assert_not_called()
 
     def test_learning_path_prompt_uses_requested_timeline(self):
         prompt = career_agent._build_summary_prompt(

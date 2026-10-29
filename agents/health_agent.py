@@ -1,3 +1,5 @@
+import os
+
 from core.llm_client import call_llm
 from core.intent_detector import detect_intent
 from tools.calculators import (
@@ -105,7 +107,8 @@ def run(request) -> dict:
 
     # ── RAG: Retrieve relevant context ────────────────────────
     rag_context = ""
-    if RAG_AVAILABLE:
+    use_rag = os.getenv("USE_RAG", "true").strip().lower() == "true"
+    if use_rag and RAG_AVAILABLE:
         try:
             rag_context = retrieve_as_context(request.query, top_k=3)
         except Exception as e:

@@ -264,17 +264,19 @@ def build_metrics(db: Session, user_id: str, domain: str) -> str:
                 profile.monthly_expenses or 0,
             )
 
-            debt = calculate_debt_ratio(
-                profile.monthly_income,
-                profile.monthly_expenses or 0,
-            )
+            lines = [
+                f"Monthly Savings = ₹{savings['savings']}",
+                f"Savings Rate = {savings['rate_pct']}%",
+            ]
 
-            return (
-                f"Monthly Savings = ₹{savings['savings']}\n"
-                f"Savings Rate = {savings['rate_pct']}%\n"
-                f"Debt Ratio = {debt['debt_to_income_ratio']}\n"
-                f"Debt Status = {debt['status']}"
-            )
+            monthly_emi = getattr(profile, "monthly_debt_payment", None)
+            if monthly_emi:
+                debt = calculate_debt_ratio(profile.monthly_income, monthly_emi)
+                lines.extend([
+                    f"Debt Ratio = {debt['debt_to_income_ratio']}",
+                    f"Debt Status = {debt['status']}",
+                ])
+            return "\n".join(lines)
 
     return ""
 

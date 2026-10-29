@@ -9,6 +9,7 @@ import time
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from core.career_rag_context import get_active_career_rag_context
 
 import requests
 from dotenv import load_dotenv
@@ -41,6 +42,10 @@ JSEARCH_HOST = "jsearch.p.rapidapi.com"
 
 JSEARCH_CACHE_DIR = Path(os.getenv("JSEARCH_CACHE_DIR", ".cache/jsearch"))
 JSEARCH_CACHE_TTL_SECONDS = int(os.getenv("JSEARCH_CACHE_TTL_SECONDS", "21600"))  # 6h default
+
+
+def _rag_enabled() -> bool:
+    return os.getenv("USE_RAG", "true").strip().lower() == "true"
 
 
 # =========================================================
@@ -576,6 +581,7 @@ def skill_gap_analyzer(
     current_skills: list,
     target_role: str,
     similarity_threshold: float = 0.65,
+    rag_context: str | None = None,
 ) -> dict:
     """
     Determine the user's skill gaps for a target role.
@@ -622,22 +628,28 @@ def skill_gap_analyzer(
     # -----------------------------------------------------
     # RAG
     # -----------------------------------------------------
-    try:
-        from rag.retriever import retrieve_as_context
+    if rag_context is None:
+        rag_context = get_active_career_rag_context()
 
-        knowledge_text = retrieve_as_context(
-            (
-                "required skills, competencies, qualifications, "
-                f"tools and technologies for the {role} role. "
-                f"Only return career knowledge specifically "
-                f"relevant to the {role} role."
-            ),
-            domain="career",
-            top_k=8,
-        ) or ""
+    if rag_context is not None:
+        knowledge_text = rag_context
+    elif _rag_enabled():
+        try:
+            from rag.retriever import retrieve_as_context
 
-    except Exception:
-        knowledge_text = ""
+            knowledge_text = retrieve_as_context(
+                (
+                    "required skills, competencies, qualifications, "
+                    f"tools and technologies for the {role} role. "
+                    f"Only return career knowledge specifically "
+                    f"relevant to the {role} role."
+                ),
+                domain="career",
+                top_k=8,
+            ) or ""
+
+        except Exception:
+            knowledge_text = ""
 
     # -----------------------------------------------------
     # LOCAL KB FALLBACK
@@ -780,6 +792,7 @@ def learning_path_generator(
     current_level: str,
     timeline_months: int,
     missing_skills: list[str] | None = None,
+    rag_context: str | None = None,
 ) -> dict:
     """
     Generate a phased learning roadmap for any target role.
@@ -797,25 +810,30 @@ def learning_path_generator(
     role = " ".join(str(target_role).strip().lower().split())
     missing_skills = missing_skills or []
     source = None
-    grounding_context = ""
+    grounding_context = (
+        rag_context
+        if rag_context is not None
+        else get_active_career_rag_context() or ""
+    )
 
     # -----------------------------------------------------
     # 1. Try RAG
     # -----------------------------------------------------
-    try:
-        from rag.retriever import retrieve_as_context
+    if not grounding_context and get_active_career_rag_context() is None and rag_context is None and _rag_enabled():
+        try:
+            from rag.retriever import retrieve_as_context
 
-        grounding_context = retrieve_as_context(
-            f"learning roadmap, skill-building order, courses and resources for becoming a {role}",
-            domain="career",
-            top_k=8,
-        ) or ""
+            grounding_context = retrieve_as_context(
+                f"learning roadmap, skill-building order, courses and resources for becoming a {role}",
+                domain="career",
+                top_k=8,
+            ) or ""
 
-        if grounding_context:
-            source = "rag"
+            if grounding_context:
+                source = "rag"
 
-    except Exception:
-        grounding_context = ""
+        except Exception:
+            grounding_context = ""
 
     # -----------------------------------------------------
     # 2. Local KB fallback
@@ -1367,6 +1385,7 @@ def _resume_text_for_embedding(
 def resume_optimizer(
     resume_text: str,
     target_job: str,
+    rag_context: str | None = None,
 ) -> dict:
     """
     Analyze a resume semantically against the requested target role.
@@ -1393,21 +1412,27 @@ def resume_optimizer(
     # -----------------------------------------------------
     knowledge_text = ""
 
-    try:
-        from rag.retriever import retrieve_as_context
+    if rag_context is None:
+        rag_context = get_active_career_rag_context()
 
-        knowledge_text = retrieve_as_context(
-            (
-                "skills, competencies, qualifications, "
-                "tools, technologies, responsibilities and "
-                f"resume requirements for the {target_job} role"
-            ),
-            domain="career",
-            top_k=8,
-        ) or ""
+    if rag_context is not None:
+        knowledge_text = rag_context
+    elif _rag_enabled():
+        try:
+            from rag.retriever import retrieve_as_context
 
-    except Exception:
-        knowledge_text = ""
+            knowledge_text = retrieve_as_context(
+                (
+                    "skills, competencies, qualifications, "
+                    "tools, technologies, responsibilities and "
+                    f"resume requirements for the {target_job} role"
+                ),
+                domain="career",
+                top_k=8,
+            ) or ""
+
+        except Exception:
+            knowledge_text = ""
 
     # -----------------------------------------------------
     # 2. Extract required skills dynamically

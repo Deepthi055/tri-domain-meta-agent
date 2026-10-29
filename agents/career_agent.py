@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import re
+import logging
 from typing import Any
+from contextlib import nullcontext
 
 from core.llm_client import call_llm
+from core.career_rag_context import use_career_rag_context
 
 from tools.calculators import (
     salary_benchmark,
@@ -56,15 +59,105 @@ _KNOWN_LOCATIONS = {
     "anywhere",
 }
 
+logger = logging.getLogger(__name__)
+
+
+def _classify_career_intent(
+    query: str,
+    resume_text: str = "",
+) -> dict[str, Any]:
+    """Choose only the career tools explicitly needed by a personalized request."""
+    normalized = " ".join(query.casefold().split())
+    selected: list[str] = []
+
+    if re.search(
+        r"\b(find|search|look for|show me|list)\b.{0,45}"
+        r"\b(jobs?|openings?|positions?|opportunities)\b"
+        r"|\b(job search|matching jobs|jobs matching)\b",
+        normalized,
+    ):
+        selected.append("job_search")
+
+    if re.search(
+        r"\b(my|for me|based on my|given my)\b.{0,35}"
+        r"\b(salary|pay|compensation|earnings)\b"
+        r"|\b(benchmark|compare)\b.{0,30}\bmy salary\b",
+        normalized,
+    ):
+        selected.append("salary_benchmark")
+
+    personal_skill_gap = re.search(
+        r"\bmy\b.{0,25}\b(skill gaps?|missing skills?)\b"
+        r"|\b(analy[sz]e|assess|compare|identify)\b.{0,35}"
+        r"\bmy (?:current )?skills\b",
+        normalized,
+    )
+    if personal_skill_gap:
+        selected.append("skill_gap_analyzer")
+
+    personal_learning_plan = re.search(
+        r"\b(?:my|personalized|personalised)\b.{0,25}"
+        r"\b(?:learning plan|study plan|roadmap|learning path)\b"
+        r"|\b(?:create|build|design|make)\b.{0,45}"
+        r"\b(?:learning|study) plan\b.{0,25}"
+        r"\b(?:for me|based on my|using my)\b",
+        normalized,
+    )
+    if personal_learning_plan or (
+        personal_skill_gap
+        and re.search(r"\b(close|address|overcome|fix)\b", normalized)
+    ):
+        selected.append("learning_path_generator")
+
+    if resume_text:
+        selected.append("resume_optimizer")
+
+    selected = list(dict.fromkeys(selected))
+    personalized_profile_intro = (
+        re.search(r"\b(?:introduction|intro|professional summary|about me)\b", normalized)
+        and re.search(
+            r"\b(?:my career profile|my profile|my background|according to my)\b",
+            normalized,
+        )
+    )
+    profile_fields = (
+        [
+            "current_skills",
+            "target_role",
+            "experience_level",
+            "years_experience",
+            "location",
+        ]
+        if personalized_profile_intro
+        else []
+    )
+    if personalized_profile_intro:
+        intent_class = "HYBRID"
+        reason = "The request asks for a response based on the user's career profile."
+    elif not selected:
+        intent_class = "KNOWLEDGE_ONLY"
+        reason = "No personalized career-tool intent was detected."
+    elif any(
+        name in selected
+        for name in ("skill_gap_analyzer", "learning_path_generator")
+    ):
+        intent_class = "HYBRID"
+        reason = "The request needs profile-based analysis and career guidance."
+    else:
+        intent_class = "TOOL_REQUIRED"
+        reason = "The request explicitly requires personalized career-tool results."
+
+    return {
+        "intent_class": intent_class,
+        "tools": selected,
+        "reason": reason,
+        "profile_fields": profile_fields,
+    }
+
 
 def _should_run_career_analysis(query: str, resume_text: str) -> bool:
-    """Return whether the request needs the career-analysis tools."""
-    if resume_text:
-        return True
-    if not query.strip():
-        return True
-    normalized_query = query.casefold()
-    return any(term in normalized_query for term in _CAREER_ANALYSIS_TERMS)
+    """Preserve the legacy predicate while basing it on detected tool intent."""
+    return bool(_classify_career_intent(query, resume_text)["tools"])
 
 
 def _as_optional_text(value: Any) -> str | None:
@@ -238,6 +331,9 @@ def _build_summary_prompt(
     salary_data: dict,
     path_data: dict,
     resume_data: dict | None,
+    rag_context: str = "",
+    profile_values: dict[str, Any] | None = None,
+    tool_selected: list[str] | None = None,
 ) -> str:
     """
     Build the user-message prompt sent to the language model.
@@ -248,6 +344,15 @@ def _build_summary_prompt(
 
     top_job_text = _format_top_job(jobs_data)
     resume_text = _format_resume_result(resume_data)
+    included_profile = profile_values or {}
+    profile_text = (
+        "\n".join(
+            f"- {name}: {value}"
+            for name, value in included_profile.items()
+        )
+        or "- No stored profile values included for this query"
+    )
+    selected_tools_text = ", ".join(tool_selected or []) or "None"
 
     prompt = f"""
     Answer the user's current query directly and concisely.
@@ -272,6 +377,15 @@ Target role:
 
 Current skills:
 {_format_skills(current_skills)}
+
+Profile values included:
+{profile_text}
+
+Tools selected for this request:
+{selected_tools_text}
+
+Retrieved career context:
+{rag_context}
 
 Skill-gap analysis:
 {gap_data}
@@ -312,7 +426,12 @@ Do not repeat all input data.
     return prompt.strip()
 
 
-def run(request: Any, constraints: str = "") -> dict:
+def run(
+    request: Any,
+    constraints: str = "",
+    rag_context: str | None = None,
+    rag_enabled: bool | None = None,
+) -> dict:
     """
     Run the complete career advisory workflow.
 
@@ -397,82 +516,183 @@ def run(request: Any, constraints: str = "") -> dict:
     if requested_timeline is not None:
         timeline_months = requested_timeline
 
-    analysis_requested = _should_run_career_analysis(current_query, resume_text)
+    intent = _classify_career_intent(current_query, resume_text)
+    selected_tools = intent["tools"]
+    analysis_requested = bool(selected_tools)
+    profile_candidates = {
+        "current_skills": current_skills,
+        "target_role": target_role,
+        "location": location,
+        "experience_level": experience_level,
+        "years_experience": years_experience,
+        "current_level": current_level,
+        "timeline_months": timeline_months,
+    }
+    tool_profile_fields = {
+        "skill_gap_analyzer": ("current_skills", "target_role"),
+        "job_search": (
+            "current_skills", "target_role", "location", "experience_level",
+        ),
+        "salary_benchmark": ("target_role", "location", "years_experience"),
+        "learning_path_generator": (
+            "current_skills", "target_role", "current_level", "timeline_months",
+        ),
+        "resume_optimizer": ("target_role",),
+    }
+    needed_profile_fields = {
+        field
+        for name in selected_tools
+        for field in tool_profile_fields.get(name, ())
+    } | set(intent.get("profile_fields", ()))
+    profile_labels = {
+        "current_skills": "Current skills",
+        "target_role": "Target role",
+        "location": "Location",
+        "experience_level": "Experience level",
+        "years_experience": "Years of experience",
+        "current_level": "Current level",
+        "timeline_months": "Timeline",
+    }
+    profile_values_used = {
+        profile_labels[field]: profile_candidates[field]
+        for field in needed_profile_fields
+        if field in profile_candidates
+        and profile_candidates[field] not in (None, "", [], {})
+    }
+    if "target_role" not in needed_profile_fields:
+        target_role = None
+    if "current_skills" not in needed_profile_fields:
+        current_skills = []
 
-    if not analysis_requested:
-        gap_data = {}
-        jobs_data = {}
-        salary_data = {}
-        path_data = {}
-    else:
-        # ---------------------------------------------------------
-        # 1. Analyze skill gaps
-        # ---------------------------------------------------------
-        gap_data = skill_gap_analyzer(
-            current_skills=current_skills,
-            target_role=target_role or "",
-        )
+    gap_data: dict = {}
+    jobs_data: dict = {}
+    salary_data: dict = {}
+    path_data: dict = {}
+    resume_data = None
+    tool_results: dict[str, dict[str, Any]] = {}
+    tool_functions = {
+        "skill_gap_analyzer": (
+            skill_gap_analyzer,
+            {
+                "current_skills": current_skills,
+                "target_role": target_role or "",
+            },
+        ),
+        "job_search": (
+            job_search,
+            {
+                "target_role": target_role or "",
+                "skills": current_skills,
+                "location": location or "",
+                "experience_level": experience_level or "",
+            },
+        ),
+        "salary_benchmark": (
+            salary_benchmark,
+            {
+                "role": target_role or "",
+                "location": location or "",
+                "years_experience": years_experience or 0,
+            },
+        ),
+        "learning_path_generator": (
+            learning_path_generator,
+            {
+                "target_role": target_role or "",
+                "current_level": current_level or "",
+                "timeline_months": timeline_months or 0,
+            },
+        ),
+        "resume_optimizer": (
+            resume_optimizer,
+            {
+                "resume_text": resume_text,
+                "target_job": target_role or "",
+            },
+        ),
+    }
 
-        # ---------------------------------------------------------
-        # 2. Search and rank jobs
-        # ---------------------------------------------------------
-        jobs_data = job_search(
-            target_role=target_role or "",
-            skills=current_skills,
-            location=location or "",
-            experience_level=experience_level or "",
-        )
+    active_context = (
+        rag_context
+        if rag_context is not None
+        else ("" if rag_enabled is False else None)
+    )
+    context_scope = (
+        use_career_rag_context(active_context)
+        if active_context is not None
+        else nullcontext()
+    )
+    with context_scope:
+        for tool_name in selected_tools:
+            function, kwargs = tool_functions[tool_name]
+            if tool_name == "learning_path_generator":
+                kwargs["missing_skills"] = (
+                    gap_data.get("missing_skills", [])
+                    if isinstance(gap_data, dict)
+                    else []
+                )
+            if active_context is not None and tool_name in {
+                "skill_gap_analyzer",
+                "learning_path_generator",
+                "resume_optimizer",
+            }:
+                kwargs["rag_context"] = active_context
+            try:
+                output = function(**kwargs)
+                failed = (
+                    not isinstance(output, dict)
+                    or output.get("status") == "failed"
+                    or bool(output.get("error"))
+                )
+                tool_results[tool_name] = {
+                    "status": "failed" if failed else "completed",
+                    "output": output,
+                }
+                if failed:
+                    logger.warning(
+                        "Career tool %s returned an unsuccessful result.",
+                        tool_name,
+                    )
+                    output = {}
+            except Exception as exc:
+                logger.exception(
+                    "Career tool %s failed: %s: %s",
+                    tool_name,
+                    type(exc).__name__,
+                    str(exc),
+                )
+                tool_results[tool_name] = {
+                    "status": "failed",
+                    "output": {"error": str(exc)},
+                }
+                output = {}
 
-        # ---------------------------------------------------------
-        # 3. Get salary information
-        # ---------------------------------------------------------
-        salary_data = salary_benchmark(
-            role=target_role or "",
-            location=location or "",
-            years_experience=years_experience or 0,
-        )
-
-        # ---------------------------------------------------------
-        # 4. Generate learning path
-        # ---------------------------------------------------------
-        path_data = learning_path_generator(
-            target_role=target_role or "",
-            current_level=current_level or "",
-            timeline_months=timeline_months or 0,
-            missing_skills=(
-                gap_data.get("missing_skills", [])
-                if isinstance(gap_data, dict)
-                else []
-            ),
-        )
+            if tool_name == "skill_gap_analyzer":
+                gap_data = output
+            elif tool_name == "job_search":
+                jobs_data = output
+            elif tool_name == "salary_benchmark":
+                salary_data = output
+            elif tool_name == "learning_path_generator":
+                path_data = output
+            elif tool_name == "resume_optimizer":
+                resume_data = output
 
     # ---------------------------------------------------------
     # 5. Analyze resume if supplied
     # ---------------------------------------------------------
 
-    resume_data = None
-
-    if resume_text:
-        resume_data = resume_optimizer(
-            resume_text=resume_text,
-            target_job=target_role or "",
-        )
-
     tool_outputs = {
-        "skill_gap_analyzer": gap_data,
-        "job_search": jobs_data,
-        "salary_benchmark": salary_data,
-        "learning_path_generator": path_data,
+        name: tool_results[name]
+        for name in selected_tools
     }
-    if resume_data is not None:
-        tool_outputs["resume_optimizer"] = resume_data
     tools_used = [
-        name for name, output in tool_outputs.items()
-        if isinstance(output, dict)
+        name for name in selected_tools
     ]
     sources = []
-    for output in tool_outputs.values():
-        if not isinstance(output, dict):
+    for tool_result in tool_outputs.values():
+        output = tool_result.get("output", {})
+        if tool_result.get("status") != "completed" or not isinstance(output, dict):
             continue
         source_values = output.get("sources", output.get("source", []))
         if isinstance(source_values, str):
@@ -495,6 +715,9 @@ def run(request: Any, constraints: str = "") -> dict:
         salary_data=salary_data,
         path_data=path_data,
         resume_data=resume_data,
+        rag_context=rag_context or "",
+        profile_values=profile_values_used,
+        tool_selected=selected_tools,
     )
 
     if constraints:
@@ -566,15 +789,22 @@ Additional constraints:
         "summary": llm_response,
         "tools_used": tools_used if analysis_requested else [],
         "tool_outputs": (
-            {
-                name: {
-                    "status": "failed" if output.get("error") else "completed",
-                    "output": output,
-                }
-                for name, output in tool_outputs.items()
-            }
-            if analysis_requested
-            else {}
+            tool_outputs if analysis_requested else {}
         ),
         "sources": list(dict.fromkeys(sources)) if analysis_requested else [],
+        "intent_class": intent["intent_class"],
+        "tool_selected": selected_tools or None,
+        "tool_selected_reason": intent["reason"] if selected_tools else None,
+        "profile_values_used": profile_values_used,
+        "rag_enabled": rag_enabled,
+        "retrieval_status": (
+            "success"
+            if rag_context
+            else "disabled"
+            if rag_enabled is False
+            else "empty"
+            if rag_context is not None
+            else "not_attempted"
+        ),
+        "context_in_prompt": bool(rag_context),
     }

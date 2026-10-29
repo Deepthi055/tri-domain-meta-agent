@@ -6,6 +6,7 @@ Automated tests for the finance reasoning pipeline.
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -41,29 +42,61 @@ def _req(**kwargs) -> SimpleNamespace:
     return SimpleNamespace(**defaults)
 
 
+@pytest.fixture(autouse=True)
+def mock_external_finance_services(monkeypatch):
+    monkeypatch.setenv("USE_RAG", "false")
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", False)
+
+    def format_deterministic_response(system_prompt, user_message, temperature):
+        response = user_message.split(
+            "\n\nUSER QUERY:", 1
+        )[0].split("PRE-COMPUTED RESPONSE (use as basis — do NOT recalculate):\n", 1)[-1]
+        return {"recommendation": response}
+
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        format_deterministic_response,
+    )
+
+
 class TestIntentDetection:
+    def test_formatter_prompt_has_finance_grounding_rules(self):
+        prompt = " ".join(finance_agent.LLM_FORMATTER_PROMPT.split())
+
+        assert "Use retrieved context as the primary evidence" in prompt
+        assert "Cite the exact document title shown in retrieved text" in prompt
+        assert "Do not invent source names, statistics, quotations, or document contents" in prompt
+        assert "General guidance, not explicitly stated in the knowledge base." in prompt
+        assert "knowledge base does not contain sufficient evidence" in prompt
+
     def test_budget_intent(self):
-        assert finance_agent._detect_tools("Help me create a monthly budget")[0] == "budget"
+        assert finance_agent._detect_tools("Help me create a monthly budget") == "budget"
 
     def test_debt_intent(self):
-        assert finance_agent._detect_tools("How do I pay off my credit card debt?")[0] == "debt"
+        assert finance_agent._detect_tools("How do I pay off my credit card debt?") == "debt"
 
     def test_retirement_intent(self):
-        assert finance_agent._detect_tools("How much should I save for retirement?")[0] == "retirement"
+        assert finance_agent._detect_tools("How much should I save for retirement?") == "retirement"
 
     def test_tax_intent(self):
-        assert finance_agent._detect_tools("Which tax regime is better for me?")[0] == "tax"
+        assert finance_agent._detect_tools("Which tax regime is better for me?") == "tax"
 
     def test_investment_intent(self):
-        assert finance_agent._detect_tools("How should I invest my savings in SIP?")[0] == "investments"
+        assert finance_agent._detect_tools("How should I invest my savings in SIP?") == "investments"
 
     def test_savings_intent(self):
-        assert finance_agent._detect_tools("How long to reach my savings goal?")[0] == "savings"
+        assert finance_agent._detect_tools("How long to reach my savings goal?") == "savings"
 
     def test_exactly_one_tool(self):
         tools = finance_agent._detect_tools("I have debt and want a budget")
-        assert len(tools) == 1
-        assert tools[0] == "debt"
+        assert tools == "debt"
+
+    def test_finance_knowledge_queries_do_not_select_a_tool(self):
+        assert finance_agent._detect_tools("Explain the 50-30-20 budgeting rule.") is None
+        assert finance_agent._detect_tools(
+            "How big should my emergency fund be, and where should I keep it?"
+        ) is None
 
 
 class TestBudgetPipeline:
@@ -123,6 +156,262 @@ class TestBudgetPipeline:
         assert "Missing fields" in result["recommendation"]
         assert "Monthly income" in result["recommendation"]
         assert result["tool_outputs"] == {}
+
+
+def _rag_chunk(text: str, chunk_id: int = 1) -> dict:
+    return {
+        "source": "finance_kb.txt",
+        "chunk_id": chunk_id,
+        "relevance_score": 0.91,
+        "text": text,
+    }
+
+
+def test_knowledge_query_with_missing_profile_uses_rag_and_llm(monkeypatch):
+    retrieved = []
+    prompts = []
+    monkeypatch.setenv("USE_RAG", "true")
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda query: retrieved.append(query) or [
+            _rag_chunk(
+                "DOCUMENT: Personal Finance Fundamentals\n"
+                "The recommended budgeting rule is the 50-30-20 rule."
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        lambda system_prompt, user_message, temperature: (
+            prompts.append(user_message)
+            or {
+                "recommendation": (
+                    "The 50-30-20 rule allocates income to needs, wants, "
+                    "and savings."
+                )
+            }
+        ),
+    )
+
+    result = finance_agent.run(_req(
+        query="Explain the 50-30-20 budgeting rule.",
+        monthly_income=None,
+        monthly_expenses=None,
+    ))
+
+    assert retrieved == ["Explain the 50-30-20 budgeting rule."]
+    assert "The recommended budgeting rule is the 50-30-20 rule." in prompts[0]
+    assert "I need your income and expense details" not in result["recommendation"]
+    assert result["explainability"]["tool_selected"] is None
+    assert result["explainability"]["retrieval_status"] == "success"
+    assert result["explainability"]["retrieved_sources"] == [{
+        "doc_title": "Personal Finance Fundamentals",
+        "chunk_id": 1,
+        "score": 0.91,
+    }]
+
+
+def test_emergency_fund_query_uses_context_without_budget_tool(monkeypatch):
+    prompts = []
+    monkeypatch.setenv("USE_RAG", "true")
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda query: [
+            _rag_chunk(
+                "DOCUMENT: Emergency Fund Guide\n"
+                "Students: 3 months of expenses\n"
+                "Salaried employees: 6 months of expenses\n"
+                "Freelancers or business owners: 9–12 months of expenses."
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "_run_budget",
+        lambda request, query="": pytest.fail("Budget tool must not run"),
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        lambda system_prompt, user_message, temperature: (
+            prompts.append(user_message)
+            or {"recommendation": "Use a liquid account for emergency savings."}
+        ),
+    )
+
+    result = finance_agent.run(_req(
+        query="How big should my emergency fund be, and where should I keep it?"
+    ))
+
+    assert "Students: 3 months of expenses" in prompts[0]
+    assert "Salaried employees: 6 months of expenses" in prompts[0]
+    assert "9–12 months of expenses" in prompts[0]
+    assert result["explainability"]["tool_selected"] is None
+    assert result["tools_used"] == []
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Explain the 50-30-20 budgeting rule.",
+        "How big should my emergency fund be, and where should I keep it?",
+    ],
+)
+def test_rag_toggle_does_not_change_knowledge_query_tool_selection(
+    monkeypatch, query
+):
+    retrieved = []
+    prompts = []
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda value: retrieved.append(value) or [
+            _rag_chunk("DOCUMENT: Finance Guide\nKnown retrieved sentence.")
+        ],
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        lambda system_prompt, user_message, temperature: (
+            prompts.append(user_message) or {"recommendation": "Knowledge answer."}
+        ),
+    )
+
+    monkeypatch.setenv("USE_RAG", "true")
+    enabled = finance_agent.run(_req(query=query))
+    monkeypatch.setenv("USE_RAG", "false")
+    disabled = finance_agent.run(_req(query=query))
+
+    assert retrieved == [query]
+    assert enabled["explainability"]["tool_selected"] is None
+    assert disabled["explainability"]["tool_selected"] is None
+    assert enabled["explainability"]["tool_selected"] == disabled["explainability"]["tool_selected"]
+    assert "Known retrieved sentence." in prompts[0]
+    assert "Known retrieved sentence." not in prompts[1]
+    assert not disabled["explainability"]["context_in_prompt"]
+    assert disabled["explainability"]["retrieval_status"] == "disabled"
+
+
+def test_budget_tool_and_retrieved_context_both_reach_llm(monkeypatch):
+    prompts = []
+    monkeypatch.setenv("USE_RAG", "true")
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda query: [
+            _rag_chunk("DOCUMENT: Budget Guide\nRetrieved budgeting guidance.")
+        ],
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        lambda system_prompt, user_message, temperature: (
+            prompts.append(user_message)
+            or {"recommendation": "Budget result was reviewed."}
+        ),
+    )
+
+    result = finance_agent.run(_req(
+        query="Make a monthly budget: income 60000, expenses 40000",
+        monthly_income=None,
+        monthly_expenses=None,
+    ))
+
+    assert result["tools_used"] == ["budget"]
+    assert result["tool_outputs"]["budget"]["income"] == 60000.0
+    assert result["tool_outputs"]["budget"]["total_expenses"] == 40000.0
+    assert "Retrieved budgeting guidance." in prompts[0]
+    assert '"total_expenses": 40000.0' in prompts[0]
+
+
+def test_budget_expense_ratio_is_not_reported_as_debt_ratio(monkeypatch):
+    monkeypatch.setenv("USE_RAG", "false")
+
+    result = finance_agent.run(_req(
+        query="Make a monthly budget",
+        monthly_income=30_000.0,
+        monthly_expenses=20_000.0,
+        monthly_debt_payment=None,
+        total_debt=None,
+    ))
+
+    assert result["debt_ratio"] is None
+    assert result["expense_ratio"] == 66.7
+    assert "Expense Ratio: 66.7%" in result["recommendation"]
+    assert "Debt-to-Income Ratio" not in result["recommendation"]
+    assert "concerning" not in result["recommendation"].lower()
+
+
+def test_finance_fallback_receives_retrieved_context(monkeypatch):
+    from langchain_agents import meta_lc_agent
+
+    prompts = []
+    monkeypatch.setenv("USE_RAG", "true")
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda query: [
+            _rag_chunk("DOCUMENT: Finance Guide\nFallback prompt context.")
+        ],
+    )
+    monkeypatch.setattr(
+        meta_lc_agent,
+        "finance_run",
+        lambda request: (_ for _ in ()).throw(RuntimeError("primary failed")),
+    )
+    monkeypatch.setattr(
+        finance_agent,
+        "call_llm",
+        lambda system_prompt, user_message, temperature: (
+            prompts.append(user_message)
+            or {"recommendation": "Fallback answer based on finance context."}
+        ),
+    )
+
+    response = asyncio.run(meta_lc_agent.meta_lc_agent(SimpleNamespace(
+        query="Explain the 50-30-20 rule.",
+        domain="finance",
+        user_id=None,
+        monthly_income=None,
+        monthly_expenses=None,
+    )))
+
+    assert response["responses"][0]["agent_type"] == "fallback"
+    assert "Fallback prompt context." in prompts[0]
+
+
+def test_five_queries_have_same_tool_selection_with_rag_on_and_off(monkeypatch):
+    monkeypatch.setattr(finance_agent, "RAG_AVAILABLE", True)
+    monkeypatch.setattr(
+        finance_agent,
+        "retrieve",
+        lambda query: [_rag_chunk("DOCUMENT: Finance Guide\nContext.")],
+    )
+    queries = [
+        "Explain the 50-30-20 rule.",
+        "How big should my emergency fund be?",
+        "Make a monthly budget",
+        "How long to reach my savings goal?",
+        "How should I invest my savings in SIP?",
+    ]
+
+    for query in queries:
+        monkeypatch.setenv("USE_RAG", "true")
+        with_rag = finance_agent.run(_req(query=query))
+        monkeypatch.setenv("USE_RAG", "false")
+        without_rag = finance_agent.run(_req(query=query))
+        assert (
+            with_rag["explainability"]["tool_selected"]
+            == without_rag["explainability"]["tool_selected"]
+        )
 
 
 class TestDebtPipeline:

@@ -71,6 +71,24 @@ RULES:
 5. Always suggest consulting a doctor for medical conditions
 6. If mental health risk_flag is True, recommend professional help
 
+GROUNDING AND SOURCE ATTRIBUTION RULES:
+1. Use retrieved context as the primary evidence for claims about the health
+   knowledge base.
+2. Cite the exact document title shown in retrieved text for each
+   knowledge-base-supported claim.
+3. Do not invent source names, statistics, quotations, or document contents.
+4. If retrieved documents do not specify health-related guidance for the
+   user's query, state that limitation clearly.
+5. Separate retrieved evidence from general recommendations. Label
+   recommendations not directly supported by retrieved context as
+   "General guidance, not explicitly stated in the knowledge base."
+6. Never attribute a claim to a document unless the retrieved text from that
+   document supports it.
+7. If retrieval status is empty, failed, or disabled, or no relevant context is
+   provided, state that the knowledge base does not contain sufficient
+   evidence. Do not imply retrieval succeeded merely because a source filename
+   is available.
+
 After using tools, respond ONLY with valid JSON:
 {
     "recommendation": "specific actionable advice",
@@ -81,6 +99,47 @@ After using tools, respond ONLY with valid JSON:
 tools = [bmi_tool, fitness_score_tool, sleep_analysis_tool,
          mental_health_tool, workout_planner_tool]
 health_agent = create_react_agent(llm, tools, prompt=SYSTEM_PROMPT)
+
+
+def _retrieve_health_context(query: str) -> dict:
+    """Return health retrieval evidence without hiding empty or failed execution."""
+    if os.getenv("USE_RAG", "true").strip().lower() != "true":
+        return {"status": "disabled", "context": "", "sources": []}
+
+    try:
+        from rag.health_retriever import retrieve
+
+        documents = retrieve(query, top_k=3) or []
+        context_documents = [
+            document
+            for document in documents
+            if isinstance(document, dict)
+            and isinstance(document.get("text"), str)
+            and document["text"].strip()
+        ]
+        sources = list(dict.fromkeys(
+            document.get("source")
+            for document in context_documents
+            if document.get("source")
+        ))
+        context = "\n\nRELEVANT HEALTH KNOWLEDGE:\n" + "\n\n".join(
+            f"[Source file: {document.get('source', 'unknown')}]\n"
+            f"{document['text']}"
+            for document in context_documents
+        )
+        return {
+            "status": "success" if context_documents else "empty",
+            "context": context if context_documents else "",
+            "sources": sources,
+        }
+    except Exception as exc:
+        return {
+            "status": "failed",
+            "context": "",
+            "sources": [],
+            "error": str(exc),
+        }
+
 
 def run(request) -> dict:
     query = getattr(request, "query", "")
@@ -104,6 +163,7 @@ def run(request) -> dict:
             "confidence_level": "High",
         }
 
+    retrieval = _retrieve_health_context(query)
     user_input = f"""User profile:
 - Name: {request.name}, Age: {request.age}
 - Weight: {getattr(request, 'weight_kg', 70)}kg
@@ -116,6 +176,9 @@ def run(request) -> dict:
 - Fitness goal: {getattr(request, 'fitness_goal', 'general fitness')}
 - Available days: {getattr(request, 'available_days', 3)}
 - Query: {request.query}
+
+Health knowledge retrieval status: {retrieval["status"]}
+{retrieval["context"] or "No Health knowledge context was retrieved."}
 
 Use your tools and give specific health advice."""
 
@@ -141,11 +204,22 @@ Use your tools and give specific health advice."""
                 "confidence": 0.8
             }
 
-        return {"domain": "health", "agent_type": "langchain", **parsed}
+        return {
+            "domain": "health",
+            "agent_type": "langchain",
+            "sources": retrieval["sources"],
+            "retrieval_status": retrieval["status"],
+            "retrieval_error": retrieval.get("error"),
+            **parsed,
+        }
 
     except Exception as e:
         print(f"[LangChain Health] Error: {e} — falling back")
         import agents.health_agent as original
         result = original.run(request)
         result["agent_type"] = "fallback"
+        result["sources"] = retrieval["sources"]
+        result["retrieval_status"] = retrieval["status"]
+        if retrieval.get("error"):
+            result["retrieval_error"] = retrieval["error"]
         return result

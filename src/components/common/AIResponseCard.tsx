@@ -195,6 +195,28 @@ export function AIResponseCard({
                 <Card>
                   <CardContent className="p-3">
                     <p className="text-xs font-medium mb-2">Explainability</p>
+                    {typeof explainability.latency_ms === 'number' && (
+                      <p className="text-xs text-muted-foreground mb-2">
+                        Agent latency: {explainability.latency_ms.toFixed(2)} ms
+                      </p>
+                    )}
+                    {typeof explainability.domain_explanations === 'object' &&
+                      explainability.domain_explanations !== null &&
+                      Object.entries(explainability.domain_explanations).map(([name, explanation]) => {
+                        if (
+                          !explanation ||
+                          typeof explanation !== 'object' ||
+                          !('latency_ms' in explanation) ||
+                          typeof explanation.latency_ms !== 'number'
+                        ) {
+                          return null
+                        }
+                        return (
+                          <p key={name} className="text-xs text-muted-foreground mb-2">
+                            {name} agent latency: {explanation.latency_ms.toFixed(2)} ms
+                          </p>
+                        )
+                      })}
                     <pre className="text-[10px] text-muted-foreground overflow-x-auto">
                       {JSON.stringify(explainability, null, 2)}
                     </pre>

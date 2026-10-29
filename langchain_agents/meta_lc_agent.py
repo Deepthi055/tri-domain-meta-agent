@@ -6,6 +6,8 @@ Drop-in replacement for the existing meta_agent in main.py.
 import agents.career_agent as career_original
 import agents.health_agent as health_original
 import agents.finance_agent as finance_original
+import logging
+import os
 from sqlalchemy.orm import Session
 from types import SimpleNamespace
 from langchain_agents.career_lc_agent import (
@@ -17,9 +19,11 @@ from langchain_agents.finance_lc_agent import run as finance_run
 from core.intent_detector import detect_intent
 from core.safety_layer import check_safety, check_relevance, is_uncertainty_request
 import asyncio
+import time
 from concurrent.futures import ThreadPoolExecutor
 
 executor = ThreadPoolExecutor(max_workers=3)
+logger = logging.getLogger(__name__)
 
 FALLBACK_AGENTS = {
     "career": career_original.run,
@@ -41,7 +45,7 @@ def _build_chat_explainability(domain: str, request, result: dict) -> dict:
             "Location": getattr(request, "location", None),
             "Timeline": getattr(request, "timeline_months", None),
         }
-        tools_used = result.get("tools_used", [])
+        tools_used = result.get("tools_used") or []
         used_profile_fields = {
             "skill_gap_tool": {"Current skills", "Target role"},
             "skill_gap_analyzer": {"Current skills", "Target role"},
@@ -153,7 +157,11 @@ def _build_chat_explainability(domain: str, request, result: dict) -> dict:
             for tool_name, output in tool_outputs.items()
             if isinstance(output, dict)
         } if isinstance(tool_outputs, dict) else {},
-        "retrieved_sources": result.get("sources", []),
+        "retrieved_sources": (
+            result.get("retrieved_sources", [])
+            if domain == "career"
+            else result.get("sources", [])
+        ),
         "limitations": limitations,
     }
 
@@ -297,7 +305,9 @@ def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
     }.get(domain)
     if agent is None:
         raise ValueError(f"Unsupported chat domain: {domain}")
+    started_at = time.perf_counter()
     result = agent(request)
+    latency_ms = round((time.perf_counter() - started_at) * 1000, 2)
     if not isinstance(result, dict):
         raise TypeError(f"{domain} agent returned an invalid response")
 
@@ -317,6 +327,11 @@ def run_chat_agent(db: Session, user_id: str, domain: str, query: str) -> dict:
         result["explainability"] = _build_chat_explainability(
             domain, request, result
         )
+    explainability = result.get("explainability")
+    if not isinstance(explainability, dict):
+        explainability = {}
+    explainability["latency_ms"] = latency_ms
+    result["explainability"] = explainability
     return result
 
 
@@ -450,11 +465,86 @@ async def meta_lc_agent(request) -> dict:
     responses = []
     for domain, result in zip(domains, results):
         if isinstance(result, Exception):
-            print(f"[LangChain Meta] {domain} agent failed: {result}")
+            try:
+                raise result
+            except Exception as exc:
+                logger.exception(
+                    "[LangChain Meta] %s fallback at invoke: %s: %s",
+                    domain,
+                    type(exc).__name__,
+                    str(exc),
+                )
             fallback_fn = FALLBACK_AGENTS.get(domain)
             if fallback_fn:
-                fallback = fallback_fn(request)
+                if domain == "career":
+                    retrieval_state = (
+                        request.get("_career_retrieval_state", {})
+                        if isinstance(request, dict)
+                        else getattr(request, "_career_retrieval_state", {})
+                    ) or {}
+                    fallback = fallback_fn(
+                        request,
+                        rag_context=retrieval_state.get("context"),
+                        rag_enabled=retrieval_state.get(
+                            "rag_enabled",
+                            os.getenv("USE_RAG", "true").strip().lower() == "true",
+                        ),
+                    )
+                    fallback["retrieval_status"] = retrieval_state.get(
+                        "status",
+                        fallback.get("retrieval_status", "not_attempted"),
+                    )
+                    fallback["retrieval_status_before_fallback"] = (
+                        retrieval_state.get(
+                            "status",
+                            fallback["retrieval_status"],
+                        )
+                    )
+                    fallback["retrieved_sources"] = retrieval_state.get(
+                        "retrieved_sources",
+                        fallback.get("retrieved_sources", []),
+                    )
+                    fallback["rag_available"] = retrieval_state.get(
+                        "rag_available",
+                        fallback.get("rag_available"),
+                    )
+                    fallback["context_in_prompt"] = bool(
+                        retrieval_state.get("context")
+                    )
+                    fallback["intent_class"] = retrieval_state.get(
+                        "intent_class",
+                        fallback.get("intent_class"),
+                    )
+                    fallback["tool_selected"] = retrieval_state.get(
+                        "tool_selected",
+                        fallback.get("tool_selected"),
+                    )
+                    fallback["tool_selected_reason"] = retrieval_state.get(
+                        "tool_selected_reason",
+                        fallback.get("tool_selected_reason"),
+                    )
+                else:
+                    fallback = fallback_fn(request)
                 fallback["agent_type"] = "fallback"
+                fallback["fallback_reason"] = (
+                    f"{type(result).__name__}: {str(result)[:300]}"
+                )
+                fallback["fallback_stage"] = "invoke"
+                if domain != "career":
+                    fallback["rag_enabled"] = (
+                        os.getenv("USE_RAG", "true").strip().lower() == "true"
+                    )
+                    fallback["retrieval_status_before_fallback"] = fallback.get(
+                        "retrieval_status", "not_attempted"
+                    )
+                if domain == "career":
+                    fallback["selected_agent_reason"] = (
+                        f"Outer fallback was used after invoke: "
+                        f"{fallback['fallback_reason']}"
+                    )
+                    fallback["explainability"] = _build_career_explainability(
+                        request, fallback
+                    )
                 responses.append(fallback)
             else:
                 responses.append({

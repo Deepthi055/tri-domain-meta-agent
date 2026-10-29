@@ -20,9 +20,9 @@ def calculate_savings(income: float, expenses: float) -> dict:
     rate = (savings / income) * 100
     return {"savings": savings, "rate_pct": round(rate, 1)}
 
-def calculate_debt_ratio(income: float, expenses: float) -> dict:
-    ratio = expenses / income
-    status = "healthy" if ratio < 0.5 else "concerning"
+def calculate_debt_ratio(income: float, monthly_emi: float) -> dict:
+    ratio = monthly_emi / income
+    status = "healthy" if ratio < 0.35 else "concerning"
     return {"debt_to_income_ratio": round(ratio, 2), "status": status}
 
 

@@ -129,17 +129,17 @@ def build_explainability(domain: str, agent_response: dict, request) -> dict:
     # ── FINANCE ───────────────────────────────────────────────────────
     elif domain == "finance":
 
-        if "savings" in agent_response:
+        if isinstance(agent_response.get("savings"), dict):
             sv = agent_response["savings"]
             data_used.append(f"Savings rate: {sv['rate_pct']}%")
             data_used.append(f"Monthly savings: Rs.{sv['savings']}")
 
-        if "debt_ratio" in agent_response:
+        if isinstance(agent_response.get("debt_ratio"), dict):
             dr = agent_response["debt_ratio"]
             data_used.append(f"Debt-to-income ratio: {dr['debt_to_income_ratio']} ({dr['status']})")
 
         # Decision factors
-        if "savings" in agent_response:
+        if isinstance(agent_response.get("savings"), dict):
             sv = agent_response["savings"]
             if sv["rate_pct"] < 10:
                 decision_factors.append("Critical savings rate — immediate budget review needed")
@@ -148,7 +148,7 @@ def build_explainability(domain: str, agent_response: dict, request) -> dict:
             else:
                 decision_factors.append("Good savings rate — focus on investment strategy")
 
-        if "debt_ratio" in agent_response:
+        if isinstance(agent_response.get("debt_ratio"), dict):
             dr = agent_response["debt_ratio"]
             if dr["status"] == "concerning":
                 decision_factors.append("High debt ratio — debt reduction is top priority")

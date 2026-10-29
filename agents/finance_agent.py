@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import logging
 import math
+import os
 import re
 from typing import Any
 
@@ -40,7 +41,7 @@ except Exception:
     DB_AVAILABLE = False
 
 try:
-    from rag.finance_retriever import retrieve_as_context
+    from rag.finance_retriever import retrieve
     RAG_AVAILABLE = True
 except Exception:
     RAG_AVAILABLE = False
@@ -191,13 +192,28 @@ CRITICAL RULES:
 1. You MUST NOT perform any calculations — all numbers are pre-computed below.
 2. You MUST NOT give generic advice like "increase savings" or "reduce expenses"
    without citing the exact ₹ amounts provided.
-3. Use ONLY the profile values and tool outputs given to you.
+3. Use ONLY the profile values, tool outputs, and retrieved context given to you.
 4. Format the recommendation with these sections (use bullet headers):
    • Profile Data Used
    • Selected Tool
    • Calculation Steps
    • Final Recommendation
    • Confidence
+5. Use retrieved context as the primary evidence for claims about the finance
+   knowledge base.
+6. Cite the exact document title shown in retrieved text for each
+   knowledge-base-supported claim.
+7. Do not invent source names, statistics, quotations, or document contents.
+8. If retrieved documents do not specify relevant finance guidance, state that
+   limitation clearly.
+9. Separate retrieved evidence from general recommendations. Label
+   recommendations not directly supported by retrieved context as
+   "General guidance, not explicitly stated in the knowledge base."
+10. Never attribute a claim to a document unless the retrieved text from that
+    document supports it.
+11. If no relevant RAG context is provided, state that the knowledge base does
+    not contain sufficient evidence. Do not imply retrieval succeeded merely
+    because a source filename is available.
 
 Respond ONLY with valid JSON — no markdown fences:
 {
@@ -445,9 +461,12 @@ def _validate_tool_fields(
 
     missing: list[str] = []
     values: dict[str, Any] = {}
+    explicit_budget_values = _extract_explicit_budget_values(query) if tool == "budget" else {}
 
     for field in required:
-        val = _resolve_field(request, field)
+        val = explicit_budget_values.get(field)
+        if val is None:
+            val = _resolve_field(request, field)
         values[field] = val
         if val is None:
             missing.append(field)
@@ -455,6 +474,23 @@ def _validate_tool_fields(
             missing.append(field)
 
     return missing, values
+
+
+def _extract_explicit_budget_values(query: str) -> dict[str, float]:
+    """Extract monthly budget figures explicitly stated in the user's query."""
+    values: dict[str, float] = {}
+    for field, label in (
+        ("monthly_income", "income"),
+        ("monthly_expenses", "expenses"),
+    ):
+        match = re.search(
+            rf"\b{label}\s*(?:is|of|:|=)?\s*(?:₹|rs\.?\s*)?([\d,]+(?:\.\d+)?)",
+            query,
+            re.IGNORECASE,
+        )
+        if match:
+            values[field] = float(match.group(1).replace(",", ""))
+    return values
 
 
 def _load_profile_from_db(user_id: str, request: Any) -> None:
@@ -511,6 +547,8 @@ def _extract_profile(request: Any) -> tuple[dict[str, Any], list[str]]:
     profile = {
         "monthly_income": income,
         "monthly_expenses": expenses,
+        "monthly_debt_payment": getattr(request, "monthly_debt_payment", None)
+        or getattr(request, "monthly_repayment", None),
         "savings_goal": getattr(request, "savings_goal", None),
         "investments": getattr(request, "investments", None),
         "risk_tolerance": getattr(request, "risk_tolerance", None) or getattr(request, "risk_appetite", None),
@@ -579,28 +617,39 @@ def _is_budget_query(query: str) -> bool:
     if any(pattern in q for pattern in _BUDGET_INTENT_PATTERNS):
         return True
     return any(
-        kw in q for kw in (
-            "budget",
-            "monthly budget",
-            "spend",
-            "spending",
-            "expense",
-            "expenses",
-            "afford",
-            "cash flow",
+        phrase in q
+        for phrase in (
+            "calculate my budget",
+            "plan my budget",
+            "make a budget",
+            "create my budget",
+            "my savings rate",
+            "my expense ratio",
         )
     )
 
 
-def _detect_tools(query: str) -> list[str]:
-    """Return exactly one primary tool for the query."""
+def _detect_tools(query: str) -> str | None:
+    """Return the primary tool for actionable queries, or None for knowledge questions."""
     q = query.lower()
 
-    if any(re.search(p, q) for p in _META_PATTERNS):
-        return ["financial_analysis"]
+    if "emergency fund" in q or any(
+        phrase in q
+        for phrase in (
+            "explain",
+            "what is",
+            "how does",
+            "how big should",
+            "where should i keep",
+        )
+    ):
+        return None
 
     if _is_budget_query(query):
-        return ["budget"]
+        return "budget"
+
+    if any(re.search(p, q) for p in _META_PATTERNS):
+        return "financial_analysis"
 
     matched: list[str] = []
     for tool, keywords in _TOOL_KEYWORDS.items():
@@ -608,21 +657,24 @@ def _detect_tools(query: str) -> list[str]:
             matched.append(tool)
 
     if not matched:
-        return ["budget"]
+        return None
 
     for tool in _TOOL_PRIORITY:
         if tool in matched:
-            return [tool]
+            return tool
 
-    return [matched[0]]
+    return matched[0]
 
 
 # ── Tool runners ──────────────────────────────────────────────────────────────
 
 def _run_budget(request: Any, query: str = "") -> dict:
+    explicit_values = _extract_explicit_budget_values(query)
     explicit_expenses = getattr(request, "expenses", None)
     if explicit_expenses:
         expenses = explicit_expenses
+    elif explicit_values.get("monthly_expenses") is not None:
+        expenses = {"total": explicit_values["monthly_expenses"]}
     else:
         expenses = _parse_budget(
             getattr(request, "budget", None),
@@ -634,7 +686,10 @@ def _run_budget(request: Any, query: str = "") -> dict:
 
     savings_goal = getattr(request, "savings_goal", None)
     result = budget_planner(
-        income=float(getattr(request, "monthly_income", 0)),
+        income=float(
+            explicit_values.get("monthly_income")
+            or getattr(request, "monthly_income", 0)
+        ),
         expenses=expenses,
         use_rule_limits=_wants_50_30_20_rule(query),
         savings_goal=float(savings_goal) if savings_goal else None,
@@ -815,6 +870,7 @@ def _build_deterministic_response(
     active_tools: list[str],
     tool_outputs: dict,
     confidence_label: str,
+    tool_selected: str | None = None,
 ) -> str:
     """Build fully structured recommendation from tool outputs — no generic advice."""
     lines: list[str] = []
@@ -834,8 +890,11 @@ def _build_deterministic_response(
     # Selected Tool
     lines.append("")
     lines.append("Tool Selected:")
-    for tool in active_tools:
-        lines.append(f"  • {TOOL_LABELS.get(tool, tool)}")
+    if tool_selected:
+        suffix = " (not executed — incomplete profile)" if missing else ""
+        lines.append(f"  • {TOOL_LABELS.get(tool_selected, tool_selected)}{suffix}")
+    else:
+        lines.append("  • None (general finance knowledge question)")
 
     # Calculation Steps
     lines.append("")
@@ -853,8 +912,8 @@ def _build_deterministic_response(
             lines.append(f"  [{TOOL_LABELS.get(tool, tool)}] {out['note']}")
 
     # Recommendation — from primary tool
-    primary = active_tools[0]
-    primary_out = tool_outputs.get(primary, {})
+    primary = active_tools[0] if active_tools else None
+    primary_out = tool_outputs.get(primary, {}) if primary else {}
     rec = primary_out.get("recommendation") or primary_out.get("summary") or ""
 
     if missing and not rec:
@@ -862,6 +921,8 @@ def _build_deterministic_response(
             f"Cannot provide full personalised advice. "
             f"Please update your profile with: {', '.join(missing)}."
         )
+    elif not rec:
+        rec = "No personalized calculation was run."
 
     lines.append("")
     lines.append("Recommendation:")
@@ -1045,6 +1106,9 @@ def _format_with_llm(
     tool_outputs: dict,
     active_tools: list[str],
     rag_context: str,
+    query: str = "",
+    tool_selected: str | None = None,
+    missing_fields: list[str] | None = None,
 ) -> dict:
     """Ask LLM to reformat pre-computed data — explicitly forbidden from calculating."""
     tool_json = {
@@ -1056,23 +1120,62 @@ def _format_with_llm(
     user_message = f"""PRE-COMPUTED RESPONSE (use as basis — do NOT recalculate):
 {deterministic_text}
 
+USER QUERY:
+{query}
+
 PROFILE VALUES:
 {json.dumps(profile, indent=2, default=str)}
 
+TOOL SELECTED: {TOOL_LABELS.get(tool_selected, tool_selected) if tool_selected else 'None'}
 TOOLS INVOKED: {[TOOL_LABELS.get(t, t) for t in active_tools]}
+MISSING PROFILE FIELDS: {missing_fields or []}
 
 TOOL OUTPUTS:
 {json.dumps(tool_json, indent=2, default=str)}
 
 RAG CONTEXT (reference only):
-{rag_context[:1500] if rag_context else 'None'}
+{rag_context[:1500] if rag_context else ''}
 
-Reformat into the required sections. Use exact ₹ amounts from above."""
+Answer the USER QUERY directly. For a conceptual question, explain the concept
+using the relevant facts in RAG CONTEXT and name the document title. Do not
+replace the answer with an instruction, question, or placeholder. If no tool
+was selected, do not present the response as a calculation. If a tool was
+selected but required profile fields are missing, answer generally from RAG
+CONTEXT first and ask only for the missing fields afterward. When a tool ran,
+use its output and retrieved context together. Reformat into the required
+sections and use exact ₹ amounts from tool output."""
 
     logger.info("[Finance] LLM prompt:\n%s", user_message[:2000])
 
     llm_response = call_llm(LLM_FORMATTER_PROMPT, user_message, temperature=0.1)
     return llm_response
+
+
+def _format_retrieved_chunks(chunks: list[dict]) -> tuple[str, list[dict]]:
+    """Format retrieved finance chunks and expose their source metadata."""
+    context_parts = []
+    sources = []
+    for chunk in chunks:
+        text = chunk.get("text")
+        if not isinstance(text, str) or not text.strip():
+            continue
+        title_match = re.search(r"(?:^|\n)DOCUMENT:\s*(.+)", text)
+        doc_title = (
+            title_match.group(1).strip()
+            if title_match
+            else str(chunk.get("source") or "unknown")
+        )
+        chunk_id = chunk.get("chunk_id")
+        score = chunk.get("relevance_score", chunk.get("score"))
+        sources.append({
+            "doc_title": doc_title,
+            "chunk_id": chunk_id,
+            "score": score,
+        })
+        context_parts.append(
+            f"[Source: {doc_title}; chunk_id: {chunk_id}; score: {score}]\n{text}"
+        )
+    return "\n\n".join(context_parts), sources
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────
@@ -1081,7 +1184,8 @@ def run(request: Any) -> dict[str, Any]:
     """
     Finance Agent entry point.
 
-    All calculations run in finance tools. The LLM only formats output when used.
+    All calculations run in finance tools; the LLM uses retrieved knowledge and
+    formats tool output or answers general finance questions.
     """
     query = getattr(request, "query", "")
 
@@ -1113,39 +1217,63 @@ def run(request: Any) -> dict[str, Any]:
             "confidence_level": "High",
         }
 
+    # Retrieve knowledge before tool validation so general answers remain
+    # available even when a selected tool lacks required profile fields.
+    rag_enabled = os.getenv("USE_RAG", "true").strip().lower() == "true"
+    chunks: list[dict] = []
+    retrieval_status = "disabled" if not rag_enabled else "not_used"
+    if rag_enabled and RAG_AVAILABLE:
+        try:
+            chunks = retrieve(query) or []
+            retrieval_status = "empty" if not chunks else "not_used"
+        except Exception as exc:
+            logger.warning("[Finance] RAG retrieval failed: %s", exc)
+    elif rag_enabled:
+        logger.warning("[Finance] RAG enabled but the finance retriever is unavailable")
+    rag_context, retrieved_sources = _format_retrieved_chunks(chunks)
+
     # 1. Always load latest profile
     user_id = getattr(request, "user_id", None)
     _load_profile_from_db(user_id, request)
 
     profile, _core_missing = _extract_profile(request)
+    explicit_budget_values = _extract_explicit_budget_values(query)
+    for field, value in explicit_budget_values.items():
+        if profile.get(field) is None:
+            profile[field] = value
 
-    # 2. Detect intent → exactly one tool
-    active_tools = _detect_tools(query)
-    primary_tool = active_tools[0]
+    # 2. Detect actionable tool intent independently of RAG state.
+    tool_selected = _detect_tools(query)
+    tool_selected_reason = (
+        f"Matched actionable finance intent: {tool_selected}"
+        if tool_selected
+        else None
+    )
     logger.info("[Finance] detected query: %s", query[:120])
-    logger.info("[Finance] detected intent → tool: %s", primary_tool)
+    logger.info("[Finance] detected intent → tool: %s", tool_selected)
     logger.info("[Finance] profile values: %s", profile)
 
-    # 3. Validate tool-specific required fields (never estimate missing values)
-    missing_fields, resolved_values = _validate_tool_fields(primary_tool, request, query)
+    # 3. Validate selected tool inputs; missing fields suppress execution, not
+    # retrieval or the general LLM answer.
+    missing_fields: list[str] = []
+    resolved_values: dict[str, Any] = {}
+    if tool_selected:
+        missing_fields, resolved_values = _validate_tool_fields(
+            tool_selected, request, query
+        )
     if missing_fields:
-        logger.info("[Finance] missing fields for %s: %s", primary_tool, missing_fields)
-        return _build_missing_tool_response(profile, primary_tool, missing_fields, resolved_values)
+        logger.info(
+            "[Finance] missing fields for %s: %s",
+            tool_selected,
+            missing_fields,
+        )
 
-    # 4. RAG context (budget queries must stay tool-only and avoid unrelated domain context)
-    rag_context = getattr(request, "rag_context", "") or ""
-    if primary_tool == "budget":
-        rag_context = ""
-    elif not rag_context and RAG_AVAILABLE:
-        try:
-            rag_context = retrieve_as_context(query, top_k=3)
-        except Exception as exc:
-            logger.warning("[Finance] RAG retrieval failed: %s", exc)
-
-    # 5. Execute selected tool (LLM never calculates)
+    # 4. Execute a selected tool only when its required profile is complete.
     tool_outputs: dict[str, dict] = {}
-    runner = _TOOL_RUNNERS.get(primary_tool)
-    if runner:
+    active_tools = [tool_selected] if tool_selected and not missing_fields else []
+    primary_tool = active_tools[0] if active_tools else None
+    runner = _TOOL_RUNNERS.get(primary_tool) if primary_tool else None
+    if runner and primary_tool:
         try:
             if primary_tool == "budget":
                 output = runner(request, query)
@@ -1165,30 +1293,83 @@ def run(request: Any) -> dict[str, Any]:
             tool_outputs[primary_tool] = {"error": str(exc)}
             logger.error("[Finance] tool=%s error=%s", primary_tool, exc)
 
-    if rag_context:
-        tool_outputs["rag_context"] = {"text": rag_context[:2000]}
-
-    # 6. Compute supplementary metrics from profile (display only)
+    # 5. Compute supplementary metrics from profile (display only).
     income = float(profile.get("monthly_income") or 0)
     expenses = float(profile.get("monthly_expenses") or 0)
     savings_data = calculate_savings(income, expenses) if income > 0 else None
-    debt_data = calculate_debt_ratio(income, expenses) if income > 0 else None
+    monthly_emi = _resolve_field(request, "monthly_repayment")
+    debt_data = (
+        calculate_debt_ratio(income, float(monthly_emi))
+        if income > 0 and monthly_emi is not None
+        else None
+    )
+    expense_ratio = round(expenses / income * 100, 1) if income > 0 else None
 
-    confidence_label, confidence_score = _confidence_level(profile, [], tool_outputs)
-
-    # 7. Build deterministic response (primary output — all math from tools)
-    deterministic_text = _build_deterministic_response(
-        profile, [], active_tools, tool_outputs, confidence_label,
+    confidence_label, confidence_score = _confidence_level(
+        profile, missing_fields, tool_outputs
     )
 
+    # 6. Build deterministic data for the LLM, retaining any missing fields.
+    deterministic_text = _build_deterministic_response(
+        profile,
+        missing_fields,
+        active_tools,
+        tool_outputs,
+        confidence_label,
+        tool_selected=tool_selected,
+    )
+    if expense_ratio is not None:
+        deterministic_text += f"\nExpense Ratio: {expense_ratio}%"
+    if debt_data is not None:
+        deterministic_text += (
+            "\nDebt-to-Income Ratio (monthly EMI / monthly income): "
+            f"{debt_data['debt_to_income_ratio']:.2f} ({debt_data['status']})"
+        )
+
     recommendation = deterministic_text
-    primary_out = tool_outputs.get(primary_tool, {})
+    primary_out = tool_outputs.get(primary_tool, {}) if primary_tool else {}
     reason = (
         primary_out.get("recommendation")
         or primary_out.get("summary")
-        or "Based on your profile values and calculator tool outputs."
+        or (
+            f"Missing fields for {TOOL_LABELS.get(tool_selected, tool_selected)}: "
+            f"{', '.join(missing_fields)}"
+            if missing_fields and tool_selected
+            else "General finance answer based on retrieved context."
+        )
     )
     confidence = confidence_score
+
+    # Use the same formatter prompt and message structure for all retrieval
+    # states; only the RAG CONTEXT section changes.
+    llm_response = _format_with_llm(
+        deterministic_text,
+        profile,
+        tool_outputs,
+        active_tools,
+        rag_context,
+        query=query,
+        tool_selected=tool_selected,
+        missing_fields=missing_fields,
+    )
+    if isinstance(llm_response, dict):
+        llm_recommendation = llm_response.get("recommendation")
+        if isinstance(llm_recommendation, str) and llm_recommendation.strip():
+            recommendation = llm_recommendation
+        if llm_response.get("reason"):
+            reason = str(llm_response["reason"])
+
+    if expense_ratio is not None and "Expense Ratio:" not in recommendation:
+        recommendation += f"\nExpense Ratio: {expense_ratio}%"
+    if debt_data is not None and "Debt-to-Income Ratio" not in recommendation:
+        recommendation += (
+            "\nDebt-to-Income Ratio (monthly EMI / monthly income): "
+            f"{debt_data['debt_to_income_ratio']:.2f} ({debt_data['status']})"
+        )
+
+    context_in_prompt = bool(rag_context)
+    if chunks and context_in_prompt:
+        retrieval_status = "success"
 
     logger.info("[Finance] final prompt (deterministic):\n%s", deterministic_text[:3000])
 
@@ -1212,6 +1393,7 @@ def run(request: Any) -> dict[str, Any]:
         "confidence_level":    confidence_label,
         "savings":             savings_data,
         "debt_ratio":          debt_data,
+        "expense_ratio":       expense_ratio,
         "allocation_50_30_20": allocation,
         "months_to_goal":      months_to_goal,
         "investment_advice":   tool_outputs.get("investment", {}).get("recommendation"),
@@ -1222,15 +1404,31 @@ def run(request: Any) -> dict[str, Any]:
     explainability = build_explainability("finance", result, request)
     explainability["profile_values_used"] = profile
     explainability["tools_invoked"] = [TOOL_LABELS.get(t, t) for t in active_tools]
-    explainability["missing_profile_fields"] = []
+    explainability["missing_profile_fields"] = [
+        _TOOL_FIELD_LABELS.get(field, field) for field in missing_fields
+    ]
     explainability["confidence_level"] = confidence_label
     explainability["calculation_steps"] = {
         tool: out.get("calculation_steps", [])
         for tool, out in tool_outputs.items()
         if isinstance(out, dict) and out.get("calculation_steps")
     }
+    explainability.update({
+        "rag_enabled": rag_enabled,
+        "retrieval_status": retrieval_status,
+        "retrieved_sources": retrieved_sources,
+        "tool_selected": tool_selected,
+        "tool_selected_reason": tool_selected_reason,
+        "context_in_prompt": context_in_prompt,
+        "profile_values_in_prompt": profile,
+        "expense_ratio": expense_ratio,
+    })
     result["explainability"] = explainability
 
-    logger.info("[Finance] final confidence=%s tools=%s", confidence_label, active_tools)
+    logger.info(
+        "[Finance] final confidence=%s tools=%s",
+        confidence_label,
+        active_tools,
+    )
 
     return result
