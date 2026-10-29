@@ -1,3 +1,5 @@
+import math
+
 from core.llm_client import call_llm
 from core.safety_layer import (
     DOMAIN_KEYWORDS,
@@ -11,6 +13,27 @@ def _is_ambiguous_query(query: str) -> bool:
     """Identify short symptom-only queries that need clarification."""
     normalized = query.strip().lower().strip(" .!?")
     return normalized in {"tired", "i am tired", "i'm tired", "i feel tired"}
+
+
+def calculate_confidence(match_scores: dict) -> float:
+    """Calculate confidence from the concentration of domain match scores."""
+    domains = ["career", "health", "finance"]
+    scores = [
+        max(0.0, float(match_scores.get(domain, 0)))
+        for domain in domains
+    ]
+    total = sum(scores)
+    if total == 0:
+        return 0.0
+
+    probabilities = [score / total for score in scores]
+    entropy = -sum(
+        probability * math.log(probability)
+        for probability in probabilities
+        if probability > 0
+    )
+    confidence = 1 - entropy / math.log(len(domains))
+    return round(confidence, 3)
 
 
 def detect_intent(query: str) -> dict:
@@ -58,13 +81,7 @@ def detect_intent(query: str) -> dict:
         reverse=True,
     )
 
-    # ── Confidence based on number of domains ─────────────────
-    if len(matched) == 1:
-        confidence = 0.85
-    elif len(matched) == 2:
-        confidence = 0.90
-    else:
-        confidence = 0.95
+    confidence = calculate_confidence(match_scores)
 
     reasoning = f"Detected domains: {', '.join(matched)} based on keyword matches"
 
